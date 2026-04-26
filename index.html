@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <title>DeepSeek V4 Pro 聊天（免安装版）</title>
+  <title>DeepSeek V4 Flash 聊天</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,7 +27,7 @@
 </head>
 <body>
   <div class="app">
-    <h2>💬 DeepSeek V4 Pro (NVIDIA)</h2>
+    <h2>💬 DeepSeek V4 Flash（带思考）</h2>
     <div id="chatBox"></div>
     <div class="form-area">
       <input type="text" id="userInput" placeholder="输入消息..." autofocus />
@@ -67,13 +67,16 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'deepseek-ai/deepseek-v4-pro',
-            messages: [{ role: 'user', content: userMsg }],
+            model: "deepseek-ai/deepseek-v4-flash",           // 👈 模型换成了 Flash
+            messages: [{ role: "user", content: userMsg }],
             temperature: 1,
             top_p: 0.95,
             max_tokens: 16384,
-            chat_template_kwargs: { thinking: false },
-            stream: true,
+            chat_template_kwargs: {
+              thinking: true,                                 // 👈 开启思考
+              reasoning_effort: "high"                        // 👈 推理用力程度设为高
+            },
+            stream: true
           }),
         });
 
