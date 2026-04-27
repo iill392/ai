@@ -17,27 +17,25 @@
     .user .bubble { background: #007aff; color: white; border-bottom-right-radius: 4px; }
     .assistant .bubble { background: #e9e9ea; color: #1c1c1e; border-bottom-left-radius: 4px; }
     
-    /* 推理过程样式 */
     .reasoning-box {
       margin-top: 8px;
-      padding: 8px 12px;
-      background: #f0f0f0;
+      padding: 10px 14px;
+      background: #f9f9f9;
       border-left: 3px solid #ff9500;
       border-radius: 6px;
-      font-size: 14px;
-      color: #666;
+      font-size: 13px;
+      color: #555;
       white-space: pre-wrap;
-      display: none; /* 默认隐藏 */
+      display: none;
+      position: relative;
     }
-    .reasoning-box.visible { display: block; }
-    .reasoning-toggle {
+    .reasoning-box .header {
       font-size: 12px;
-      color: #007aff;
-      cursor: pointer;
-      margin-top: 4px;
-      user-select: none;
+      color: #ff9500;
+      font-weight: 600;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
     }
-    .reasoning-toggle:hover { text-decoration: underline; }
 
     .controls { display: flex; align-items: center; gap: 12px; padding: 10px 15px; background: white; border-top: 1px solid #ddd; flex-wrap: wrap; }
     .controls label { font-size: 14px; cursor: pointer; }
@@ -59,10 +57,10 @@
     <div class="controls">
       <label for="modelSelect">模型：</label>
       <select id="modelSelect">
-        <option value="deepseek-ai/deepseek-v3.1-terminus" selected>DeepSeek V3.1 Terminus ⚡</option>
+        <option value="deepseek-ai/deepseek-v3.1-terminus" selected>DeepSeek V3.1 Terminus 🐢<span class="slow-tag">思考</span></option>
         <option value="minimaxai/minimax-m2.7">MiniMax M2.7 ⚡</option>
-        <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2 🐢<span class="slow-tag">慢</span></option>
-        <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super 🐢<span class="slow-tag">慢</span></option>
+        <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2 🐢<span class="slow-tag">思考</span></option>
+        <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super 🐢<span class="slow-tag">思考</span></option>
       </select>
       <input type="checkbox" id="thinkingToggle" />
       <label for="thinkingToggle">🤔 深度思考</label>
@@ -80,27 +78,26 @@
     const thinkingToggle = document.getElementById('thinkingToggle');
     const modelSelect = document.getElementById('modelSelect');
 
-    // 模型配置映射
     const modelConfigs = {
       'deepseek-ai/deepseek-v3.1-terminus': {
         temperature: 0.2, top_p: 0.7, max_tokens: 8192, seed: 42,
-        supportsThinking: false, defaultThinking: false,
-        chat_template_kwargs: { thinking: false }
+        supportsThinking: true, defaultThinking: false,
+        thinkingKey: 'thinking'
       },
       'minimaxai/minimax-m2.7': {
         temperature: 1, top_p: 0.95, max_tokens: 8192,
         supportsThinking: false, defaultThinking: false,
-        chat_template_kwargs: {}
+        thinkingKey: null
       },
       'deepseek-ai/deepseek-v3.2': {
         temperature: 1, top_p: 0.95, max_tokens: 8192, seed: 42,
         supportsThinking: true, defaultThinking: true,
-        chat_template_kwargs: { thinking: true }
+        thinkingKey: 'thinking'
       },
       'nvidia/nemotron-3-super-120b-a12b': {
         temperature: 1, top_p: 0.95, max_tokens: 16384,
         supportsThinking: true, defaultThinking: true,
-        chat_template_kwargs: { enable_thinking: true, reasoning_budget: 16384 }
+        thinkingKey: 'enable_thinking'
       }
     };
 
@@ -141,28 +138,30 @@
 
       const { msgDiv: assistantMsgDiv, bubble: assistantBubble } = addMessage('assistant', '思考中...');
 
-      // 创建推理过程区域（默认隐藏）
+      // 推理过程区域
       const reasoningBox = document.createElement('div');
       reasoningBox.className = 'reasoning-box';
+      reasoningBox.innerHTML = '<div class="header">🤔 推理过程</div><div class="content"></div>';
       reasoningBox.style.display = 'none';
       assistantMsgDiv.appendChild(reasoningBox);
+      const reasoningContent = reasoningBox.querySelector('.content');
 
       let reasoningText = '';
 
       const model = modelSelect.value;
       const config = modelConfigs[model];
+
+      // 构建 chat_template_kwargs
       let chatTemplateKwargs = {};
-      if (config.supportsThinking) {
-        if (model === 'nvidia/nemotron-3-super-120b-a12b') {
+      if (config.supportsThinking && config.thinkingKey) {
+        if (config.thinkingKey === 'enable_thinking') {
           chatTemplateKwargs = {
             enable_thinking: thinkingToggle.checked,
             reasoning_budget: thinkingToggle.checked ? 16384 : 0
           };
-        } else if (model === 'deepseek-ai/deepseek-v3.2') {
+        } else {
           chatTemplateKwargs = { thinking: thinkingToggle.checked };
         }
-      } else {
-        chatTemplateKwargs = config.chat_template_kwargs || {};
       }
 
       const bodyParams = {
@@ -190,7 +189,6 @@
         let fullReply = '';
         let lastUpdateTime = 0;
         const throttleInterval = 80;
-        let hasContent = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -205,24 +203,19 @@
               const parsed = JSON.parse(jsonStr);
               const delta = parsed.choices?.[0]?.delta;
 
-              // 捕获推理内容
+              // 推理过程
               if (delta?.reasoning_content) {
                 reasoningText += delta.reasoning_content;
-                reasoningBox.textContent = '🤔 思考过程：\n' + reasoningText;
-                // 第一次收到推理时显示
-                if (!hasContent && !fullReply) {
+                reasoningContent.textContent = reasoningText;
+                reasoningBox.style.display = 'block';
+                if (!fullReply) {
                   assistantBubble.textContent = '正在深度思考...';
                 }
-                reasoningBox.style.display = 'block';
                 chatBox.scrollTop = chatBox.scrollHeight;
               }
 
-              // 捕获正式回答
+              // 正式回答
               if (delta?.content) {
-                if (!hasContent) {
-                  // 收到第一个文字，清除"思考中"
-                  hasContent = true;
-                }
                 fullReply += delta.content;
                 assistantBubble.textContent = fullReply;
                 const now = Date.now();
@@ -233,7 +226,7 @@
               }
             } catch (e) {}
           }
-          assistantBubble.textContent = fullReply || assistantBubble.textContent;
+          if (fullReply) assistantBubble.textContent = fullReply;
           chatBox.scrollTop = chatBox.scrollHeight;
         }
 
