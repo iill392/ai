@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <title>DeepSeek V3.2 聊天</title>
+  <title>AI 聊天 - 多模型</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,8 +16,9 @@
     .bubble { max-width: 80%; padding: 12px 16px; border-radius: 18px; line-height: 1.4; word-break: break-word; }
     .user .bubble { background: #007aff; color: white; border-bottom-right-radius: 4px; }
     .assistant .bubble { background: #e9e9ea; color: #1c1c1e; border-bottom-left-radius: 4px; }
-    .controls { display: flex; align-items: center; gap: 10px; padding: 10px 15px; background: white; border-top: 1px solid #ddd; }
+    .controls { display: flex; align-items: center; gap: 12px; padding: 10px 15px; background: white; border-top: 1px solid #ddd; flex-wrap: wrap; }
     .controls label { font-size: 14px; cursor: pointer; }
+    .controls select, .controls input[type="checkbox"] { margin-left: 4px; }
     .form-area { display: flex; padding: 15px; gap: 10px; background: white; border-top: 1px solid #ddd; }
     #userInput { flex: 1; padding: 12px 16px; border: 1px solid #ccc; border-radius: 24px; font-size: 16px; outline: none; transition: border 0.2s; }
     #userInput:focus { border-color: #007aff; }
@@ -25,15 +26,23 @@
     button:hover { background: #005ecb; }
     button:disabled { background: #a0c4ff; cursor: not-allowed; }
     .error .bubble { background: #ff3b30; color: white; }
+    .slow-tag { font-size: 12px; background: #ff9500; color: white; padding: 2px 6px; border-radius: 8px; margin-left: 4px; }
   </style>
 </head>
 <body>
   <div class="app">
-    <h2>💬 DeepSeek V3.2</h2>
+    <h2>💬 AI 聊天助手</h2>
     <div id="chatBox"></div>
     <div class="controls">
+      <label for="modelSelect">模型：</label>
+      <select id="modelSelect">
+        <option value="deepseek-ai/deepseek-v3.1-terminus" selected>DeepSeek V3.1 Terminus ⚡</option>
+        <option value="minimaxai/minimax-m2.7">MiniMax M2.7 ⚡</option>
+        <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2 🐢<span class="slow-tag">慢</span></option>
+        <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super 🐢<span class="slow-tag">慢</span></option>
+      </select>
       <input type="checkbox" id="thinkingToggle" />
-      <label for="thinkingToggle">🤔 深度思考（慢但更详细）</label>
+      <label for="thinkingToggle">🤔 深度思考</label>
     </div>
     <div class="form-area">
       <input type="text" id="userInput" placeholder="输入消息..." autofocus />
@@ -46,6 +55,62 @@
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
     const thinkingToggle = document.getElementById('thinkingToggle');
+    const modelSelect = document.getElementById('modelSelect');
+
+    // 模型配置映射
+    const modelConfigs = {
+      'deepseek-ai/deepseek-v3.1-terminus': {
+        temperature: 0.2,
+        top_p: 0.7,
+        max_tokens: 8192,
+        seed: 42,
+        supportsThinking: false,
+        defaultThinking: false,
+        chat_template_kwargs: { thinking: false }
+      },
+      'minimaxai/minimax-m2.7': {
+        temperature: 1,
+        top_p: 0.95,
+        max_tokens: 8192,
+        supportsThinking: false,
+        defaultThinking: false,
+        chat_template_kwargs: {}
+      },
+      'deepseek-ai/deepseek-v3.2': {
+        temperature: 1,
+        top_p: 0.95,
+        max_tokens: 8192,
+        seed: 42,
+        supportsThinking: true,
+        defaultThinking: true,
+        chat_template_kwargs: { thinking: true }
+      },
+      'nvidia/nemotron-3-super-120b-a12b': {
+        temperature: 1,
+        top_p: 0.95,
+        max_tokens: 16384,
+        supportsThinking: true,
+        defaultThinking: true,
+        chat_template_kwargs: { enable_thinking: true, reasoning_budget: 16384 }
+      }
+    };
+
+    // 模型切换时更新深度思考开关状态
+    function updateThinkingToggle() {
+      const model = modelSelect.value;
+      const config = modelConfigs[model];
+      if (config.supportsThinking) {
+        thinkingToggle.disabled = false;
+        thinkingToggle.checked = config.defaultThinking;
+      } else {
+        thinkingToggle.disabled = true;
+        thinkingToggle.checked = false;
+      }
+    }
+
+    modelSelect.addEventListener('change', updateThinkingToggle);
+    // 页面加载时初始化
+    updateThinkingToggle();
 
     function addMessage(role, text) {
       const msgDiv = document.createElement('div');
@@ -67,26 +132,45 @@
       userInput.value = '';
       sendBtn.disabled = true;
 
-      const assistantBubble = addMessage('assistant', '...');
-      // 读取深度思考开关状态
-      const thinkingEnabled = thinkingToggle.checked;
+      const assistantBubble = addMessage('assistant', '思考中...');
+
+      const model = modelSelect.value;
+      const config = modelConfigs[model];
+      // 构建 chat_template_kwargs，根据模型和开关决定
+      let chatTemplateKwargs = {};
+      if (config.supportsThinking) {
+        // 对于支持思考的模型，使用开关状态覆盖默认值
+        if (model === 'nvidia/nemotron-3-super-120b-a12b') {
+          chatTemplateKwargs = {
+            enable_thinking: thinkingToggle.checked,
+            reasoning_budget: thinkingToggle.checked ? 16384 : 0  // 关闭时不发送 reasoning_budget
+          };
+        } else if (model === 'deepseek-ai/deepseek-v3.2') {
+          chatTemplateKwargs = { thinking: thinkingToggle.checked };
+        }
+      } else {
+        // 不支持思考的模型传固定值或空对象
+        chatTemplateKwargs = config.chat_template_kwargs || {};
+      }
+
+      // 构建请求体
+      const bodyParams = {
+        model: model,
+        messages: [{ role: 'user', content: userMsg }],
+        temperature: config.temperature,
+        top_p: config.top_p,
+        max_tokens: config.max_tokens,
+        stream: true,
+        chat_template_kwargs: chatTemplateKwargs
+      };
+      // 只有配置中有 seed 时才添加
+      if (config.seed !== undefined) bodyParams.seed = config.seed;
 
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: "deepseek-ai/deepseek-v3.2",
-            messages: [{ role: "user", content: userMsg }],
-            temperature: 1,
-            top_p: 0.95,
-            max_tokens: 8192,
-            seed: 42,
-            stream: true,
-            chat_template_kwargs: {
-              thinking: thinkingEnabled          // 根据用户选择决定是否深度思考
-            }
-          }),
+          body: JSON.stringify(bodyParams),
         });
 
         if (!response.ok) throw new Error('HTTP 错误 ' + response.status);
@@ -94,6 +178,8 @@
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullReply = '';
+        let lastUpdateTime = 0;
+        const throttleInterval = 80; // 80ms 节流
 
         while (true) {
           const { done, value } = await reader.read();
@@ -109,11 +195,18 @@
               const content = parsed.choices?.[0]?.delta?.content;
               if (content) {
                 fullReply += content;
-                assistantBubble.textContent = fullReply;
-                chatBox.scrollTop = chatBox.scrollHeight;
+                const now = Date.now();
+                if (now - lastUpdateTime > throttleInterval) {
+                  assistantBubble.textContent = fullReply;
+                  chatBox.scrollTop = chatBox.scrollHeight;
+                  lastUpdateTime = now;
+                }
               }
             } catch (e) {}
           }
+          // 循环末尾强制更新
+          assistantBubble.textContent = fullReply;
+          chatBox.scrollTop = chatBox.scrollHeight;
         }
         if (!fullReply) assistantBubble.textContent = '（无回复内容）';
       } catch (err) {

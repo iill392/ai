@@ -1,9 +1,8 @@
 // functions/api/chat.js
 export async function onRequestPost({ request, env }) {
-  // 从 Cloudflare 环境变量中安全获取密钥
   const NVIDIA_API_KEY = env.NVIDIA_API_KEY;
   if (!NVIDIA_API_KEY) {
-    return new Response(JSON.stringify({ error: '未配置 API 密钥，请联系管理员' }), {
+    return new Response(JSON.stringify({ error: '未配置 API 密钥' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
@@ -12,7 +11,6 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.text();
 
-    // 转发请求，保留流式能力
     const nvidiaResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -22,7 +20,6 @@ export async function onRequestPost({ request, env }) {
       body,
     });
 
-    // 直接透传响应（流式或非流式均兼容）
     return new Response(nvidiaResponse.body, {
       status: nvidiaResponse.status,
       headers: {
