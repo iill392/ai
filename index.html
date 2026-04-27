@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <title>AI 聊天 - 多模型</title>
+  <title>AI 聊天 - 多模型（有记忆）</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,8 +19,27 @@
 
     .waiting { opacity: 0.6; font-style: italic; }
 
+    /* 推理过程样式 */
+    .reasoning-box {
+      margin-top: 8px;
+      padding: 10px 14px;
+      background: #f9f9f9;
+      border-left: 3px solid #ff9500;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #555;
+      white-space: pre-wrap;
+      display: none;
+    }
+    .reasoning-box .header {
+      font-size: 12px;
+      color: #ff9500;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
     .controls { display: flex; align-items: center; gap: 12px; padding: 10px 15px; background: white; border-top: 1px solid #ddd; flex-wrap: wrap; }
-    .controls label { font-size: 14px; }
+    .controls label { font-size: 14px; cursor: pointer; }
     .controls select { margin-left: 4px; padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc; }
     .form-area { display: flex; padding: 15px; gap: 10px; background: white; border-top: 1px solid #ddd; }
     #userInput { flex: 1; padding: 12px 16px; border: 1px solid #ccc; border-radius: 24px; font-size: 16px; outline: none; transition: border 0.2s; }
@@ -29,6 +48,7 @@
     button:hover { background: #005ecb; }
     button:disabled { background: #a0c4ff; cursor: not-allowed; }
     .error .bubble { background: #ff3b30; color: white; }
+    .slow-tag { font-size: 12px; background: #ff9500; color: white; padding: 2px 6px; border-radius: 8px; margin-left: 4px; }
   </style>
 </head>
 <body>
@@ -44,6 +64,9 @@
         <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
         <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
       </select>
+      <input type="checkbox" id="thinkingToggle" disabled />
+      <label for="thinkingToggle">🤔 深度思考 <span class="slow-tag" style="font-size:11px;">慢</span></label>
+      <button id="clearHistoryBtn" style="background:#ff3b30; padding:8px 16px; font-size:14px;">清空记忆</button>
     </div>
     <div class="form-area">
       <input type="text" id="userInput" placeholder="输入消息..." autofocus />
@@ -55,45 +78,58 @@
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
     const modelSelect = document.getElementById('modelSelect');
+    const thinkingToggle = document.getElementById('thinkingToggle');
 
-    // 所有模型的固定参数（全部不开深度思考）
+    // ========== 消息历史 ==========
+    let messageHistory = [];
+
+    // 模型配置 — 千问支持可选思考
     const modelConfigs = {
       'deepseek-ai/deepseek-v3.1-terminus': {
-        temperature: 0.2,
-        top_p: 0.7,
-        max_tokens: 8192,
-        seed: 42,
+        temperature: 0.2, top_p: 0.7, max_tokens: 8192, seed: 42,
+        supportsThinking: false, defaultThinking: false,
         chat_template_kwargs: { thinking: false }
       },
       'minimaxai/minimax-m2.7': {
-        temperature: 1,
-        top_p: 0.95,
-        max_tokens: 2048,
+        temperature: 1, top_p: 0.95, max_tokens: 2048,
+        supportsThinking: false, defaultThinking: false,
         chat_template_kwargs: {}
       },
       'deepseek-ai/deepseek-v3.2': {
-        temperature: 1,
-        top_p: 0.95,
-        max_tokens: 2048,
-        seed: 42,
+        temperature: 1, top_p: 0.95, max_tokens: 2048, seed: 42,
+        supportsThinking: false, defaultThinking: false,
         chat_template_kwargs: { thinking: false }
       },
       'nvidia/nemotron-3-super-120b-a12b': {
-        temperature: 1,
-        top_p: 0.95,
-        max_tokens: 2048,
+        temperature: 1, top_p: 0.95, max_tokens: 2048,
+        supportsThinking: false, defaultThinking: false,
         chat_template_kwargs: { enable_thinking: false, reasoning_budget: 0 }
       },
       'qwen/qwen3.5-122b-a10b': {
-        temperature: 0.70,
-        top_p: 0.80,
-        max_tokens: 16384,
-        chat_template_kwargs: { enable_thinking: false }
+        temperature: 0.70, top_p: 0.80, max_tokens: 16384,
+        supportsThinking: true,          // 支持思考
+        defaultThinking: false,          // 默认关闭
+        thinkingKey: 'enable_thinking'   // 参数名
       }
     };
 
-    // 等待提示语
+    // 切换模型时更新深度思考开关
+    function updateThinkingToggle() {
+      const model = modelSelect.value;
+      const config = modelConfigs[model];
+      if (config.supportsThinking) {
+        thinkingToggle.disabled = false;
+        thinkingToggle.checked = config.defaultThinking;
+      } else {
+        thinkingToggle.disabled = true;
+        thinkingToggle.checked = false;
+      }
+    }
+    modelSelect.addEventListener('change', updateThinkingToggle);
+    updateThinkingToggle();
+
     const waitingPhrases = [
       '正在理解问题...',
       '正在组织语言...',
@@ -104,7 +140,7 @@
     let waitingIndex = 0;
     let waitingTimer = null;
 
-    function addMessage(role, text) {
+    function addMessage(role, text, saveToHistory = true) {
       const msgDiv = document.createElement('div');
       msgDiv.className = `message ${role}`;
       const bubble = document.createElement('div');
@@ -113,8 +149,18 @@
       msgDiv.appendChild(bubble);
       chatBox.appendChild(msgDiv);
       chatBox.scrollTop = chatBox.scrollHeight;
+
+      if (saveToHistory) {
+        messageHistory.push({ role, content: text });
+      }
       return { msgDiv, bubble };
     }
+
+    clearHistoryBtn.addEventListener('click', () => {
+      messageHistory = [];
+      chatBox.innerHTML = '';
+      addMessage('assistant', '记忆已清空，我们可以重新开始啦！', false);
+    });
 
     async function sendMessage() {
       const userMsg = userInput.value.trim();
@@ -124,8 +170,18 @@
       userInput.value = '';
       sendBtn.disabled = true;
 
-      const { bubble: assistantBubble } = addMessage('assistant', '');
-      // 启动交替等待提示
+      const { msgDiv: assistantMsgDiv, bubble: assistantBubble } = addMessage('assistant', '', false);
+
+      // 推理区域（千问开启思考时会用到）
+      const reasoningBox = document.createElement('div');
+      reasoningBox.className = 'reasoning-box';
+      reasoningBox.innerHTML = '<div class="header">🤔 推理过程</div><div class="content"></div>';
+      reasoningBox.style.display = 'none';
+      assistantMsgDiv.appendChild(reasoningBox);
+      const reasoningContent = reasoningBox.querySelector('.content');
+      let reasoningText = '';
+
+      // 等待提示
       waitingIndex = 0;
       assistantBubble.textContent = waitingPhrases[0];
       assistantBubble.classList.add('waiting');
@@ -137,14 +193,24 @@
       const model = modelSelect.value;
       const config = modelConfigs[model];
 
+      // 构建 chat_template_kwargs
+      let chatTemplateKwargs = {};
+      if (config.supportsThinking) {
+        chatTemplateKwargs = { enable_thinking: thinkingToggle.checked };
+      } else {
+        chatTemplateKwargs = config.chat_template_kwargs;
+      }
+
       const bodyParams = {
         model: model,
-        messages: [{ role: 'user', content: userMsg }],
+        messages: [
+          ...messageHistory.map(m => ({ role: m.role, content: m.content }))
+        ],
         temperature: config.temperature,
         top_p: config.top_p,
         max_tokens: config.max_tokens,
         stream: true,
-        chat_template_kwargs: config.chat_template_kwargs
+        chat_template_kwargs: chatTemplateKwargs
       };
       if (config.seed !== undefined) bodyParams.seed = config.seed;
 
@@ -174,14 +240,25 @@
               if (jsonStr === '[DONE]') continue;
               try {
                 const parsed = JSON.parse(jsonStr);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
+                const delta = parsed.choices?.[0]?.delta;
+
+                // 处理推理内容
+                if (delta?.reasoning_content) {
+                  reasoningText += delta.reasoning_content;
+                  reasoningContent.textContent = reasoningText;
+                  reasoningBox.style.display = 'block';
+                  if (!fullReply) assistantBubble.textContent = '正在深度思考...';
+                  chatBox.scrollTop = chatBox.scrollHeight;
+                }
+
+                // 处理正式回答
+                if (delta?.content) {
                   if (firstChunk) {
                     clearInterval(waitingTimer);
                     assistantBubble.classList.remove('waiting');
                     firstChunk = false;
                   }
-                  fullReply += content;
+                  fullReply += delta.content;
                   assistantBubble.textContent = fullReply;
                   chatBox.scrollTop = chatBox.scrollHeight;
                 }
@@ -190,10 +267,15 @@
           }
         }
 
-        if (!fullReply) {
+        if (fullReply) {
+          messageHistory.push({ role: 'assistant', content: fullReply });
+        } else if (!reasoningText) {
           clearInterval(waitingTimer);
           assistantBubble.classList.remove('waiting');
           assistantBubble.textContent = '（无回复内容）';
+        } else {
+          // 只有推理没有正式回答，把推理当回答存
+          messageHistory.push({ role: 'assistant', content: '[推理回复] ' + reasoningText });
         }
 
       } catch (err) {
