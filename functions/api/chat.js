@@ -1,7 +1,7 @@
 // functions/api/chat.js
 export async function onRequestPost({ request }) {
-  // 你的新 NVIDIA API 密钥
-  const NVIDIA_API_KEY = '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';
+  // 你的新 NVIDIA API 密钥（Gemma 模型用）
+  const NVIDIA_API_KEY = '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';
 
   try {
     const body = await request.text();

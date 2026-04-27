@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <title>DeepSeek V3.2 聊天</title>
+  <title>Gemma 4 聊天</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,7 +27,7 @@
 </head>
 <body>
   <div class="app">
-    <h2>💬 DeepSeek V3.2 (NVIDIA)</h2>
+    <h2>💬 Gemma 4 (NVIDIA API)</h2>
     <div id="chatBox"></div>
     <div class="form-area">
       <input type="text" id="userInput" placeholder="输入消息..." autofocus />
@@ -67,15 +67,14 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: "deepseek-ai/deepseek-v3.2",
+            model: "google/gemma-4-31b-it",
             messages: [{ role: "user", content: userMsg }],
-            temperature: 1,
+            max_tokens: 16384,
+            temperature: 1.00,
             top_p: 0.95,
-            max_tokens: 8192,
-            seed: 42,
             stream: true,
             chat_template_kwargs: {
-              thinking: true
+              enable_thinking: true
             }
           }),
         });
