@@ -168,6 +168,39 @@
         .btn-send:active { transform:scale(0.9); background:var(--accent-light); }
         .btn-send:disabled { background:var(--surface-3); color:var(--text-tertiary); cursor:not-allowed; box-shadow:none; }
 
+        .sidebar-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:40; opacity:0; pointer-events:none;
+            transition:opacity 0.3s;
+        }
+        .sidebar-overlay.open { opacity:1; pointer-events:auto; }
+        .sidebar {
+            position:fixed; left:0; top:0; bottom:0; width:280px; background:var(--surface);
+            z-index:50; transform:translateX(-100%); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            display:flex; flex-direction:column; box-shadow:4px 0 20px rgba(0,0,0,0.3);
+        }
+        .sidebar.open { transform:translateX(0); }
+        .sidebar-header {
+            padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; justify-content:space-between;
+        }
+        .sidebar-title { font-size:16px; font-weight:700; }
+        .sidebar-list { flex:1; overflow-y:auto; padding:8px; }
+        .sidebar-list::-webkit-scrollbar { width:4px; }
+        .sidebar-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:10px; }
+        .sidebar-item {
+            padding:12px 14px; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition);
+            margin-bottom:4px; display:flex; align-items:center; gap:10px;
+        }
+        .sidebar-item:hover { background:var(--surface-2); }
+        .sidebar-item.active { background:var(--surface-3); }
+        .sidebar-item-icon { font-size:16px; flex-shrink:0; }
+        .sidebar-item-content { flex:1; min-width:0; }
+        .sidebar-item-title { font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sidebar-item-date { font-size:11px; color:var(--text-tertiary); margin-top:2px; }
+        .sidebar-item-delete { font-size:14px; opacity:0; transition:var(--transition); flex-shrink:0; }
+        .sidebar-item:hover .sidebar-item-delete { opacity:1; }
+        .sidebar-item-delete:hover { color:var(--danger); }
+
         .toast {
             position:fixed; top:16px; top:max(16px, env(safe-area-inset-top,16px)); left:50%;
             transform:translateX(-50%) translateY(-120px); background:var(--surface-3); color:var(--text);
@@ -200,8 +233,18 @@
 </head>
 <body>
 
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="sidebar-title">对话历史</div>
+        <button class="btn-icon" id="btnCloseSidebar">✕</button>
+    </div>
+    <div class="sidebar-list" id="sidebarList"></div>
+</div>
+
 <div class="header">
-    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+    <div style="display:flex;align-items:center;gap:10px;width:100%;">
+        <button class="btn-icon" id="btnMenu" title="菜单">☰</button>
         <div class="header-left">
             <div class="logo-icon">🧠</div>
             <div>
@@ -210,7 +253,7 @@
             </div>
         </div>
         <div class="header-actions">
-            <button class="btn-icon danger" id="btnClear" title="清除对话">🗑️</button>
+            <button class="btn-icon" id="btnNewTopic" title="新话题">💬</button>
         </div>
     </div>
 </div>
@@ -259,11 +302,13 @@
         const welcomeWrap = document.getElementById('welcomeWrap');
         const chatInput = document.getElementById('chatInput');
         const btnSend = document.getElementById('btnSend');
-        const btnClear = document.getElementById('btnClear');
         const scrollBottomBtn = document.getElementById('scrollBottomBtn');
         const modelSelect = document.getElementById('modelSelect');
         const thinkingToggle = document.getElementById('thinkingToggle');
         const toast = document.getElementById('toast');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const sidebarList = document.getElementById('sidebarList');
 
         const modelConfigs = {
             'deepseek-ai/deepseek-v3.1-terminus': {
@@ -298,6 +343,114 @@
 
         let messages = [];
         let isGenerating = false;
+        let currentConversationId = null;
+
+        const STORAGE_KEY = 'ai_chat_conversations';
+
+        function getConversations() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            } catch { return []; }
+        }
+
+        function saveConversations(convs) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function getFirstUserMessage(msgs) {
+            const userMsg = msgs.find(m => m.role === 'user');
+            return userMsg ? userMsg.content.slice(0, 20) : '新对话';
+        }
+
+        function saveCurrentConversation() {
+            if (messages.length === 0) return;
+            const convs = getConversations();
+            const existing = convs.findIndex(c => c.id === currentConversationId);
+            const convData = {
+                id: currentConversationId || generateId(),
+                title: getFirstUserMessage(messages),
+                messages: [...messages],
+                model: modelSelect.value,
+                updatedAt: Date.now()
+            };
+            if (existing >= 0) {
+                convs[existing] = convData;
+            } else {
+                convs.unshift(convData);
+            }
+            currentConversationId = convData.id;
+            saveConversations(convs);
+            renderSidebarList();
+        }
+
+        function renderSidebarList() {
+            const convs = getConversations();
+            sidebarList.innerHTML = '';
+            convs.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = 'sidebar-item' + (conv.id === currentConversationId ? ' active' : '');
+                item.innerHTML = `
+                    <span class="sidebar-item-icon">💬</span>
+                    <div class="sidebar-item-content">
+                        <div class="sidebar-item-title">${conv.title}</div>
+                        <div class="sidebar-item-date">${new Date(conv.updatedAt).toLocaleDateString('zh-CN')}</div>
+                    </div>
+                    <span class="sidebar-item-delete" data-id="${conv.id}">🗑️</span>
+                `;
+                item.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('sidebar-item-delete')) {
+                        e.stopPropagation();
+                        const id = e.target.dataset.id;
+                        let convs = getConversations().filter(c => c.id !== id);
+                        saveConversations(convs);
+                        if (currentConversationId === id) {
+                            startNewConversation();
+                        }
+                        renderSidebarList();
+                        return;
+                    }
+                    loadConversation(conv);
+                });
+                sidebarList.appendChild(item);
+            });
+        }
+
+        function loadConversation(conv) {
+            messages = [...conv.messages];
+            currentConversationId = conv.id;
+            modelSelect.value = conv.model || 'qwen/qwen3-next-80b-a3b-thinking';
+            updateThinkingToggle();
+            chatContainer.querySelectorAll('.message').forEach(el => el.remove());
+            if (messages.length === 0) {
+                showWelcome();
+            } else {
+                hideWelcome();
+                messages.forEach(msg => {
+                    const el = createMsgEl(msg.role, msg.content);
+                    chatContainer.appendChild(el);
+                });
+                scrollToBottom(false);
+            }
+            closeSidebar();
+        }
+
+        function startNewConversation() {
+            if (messages.length > 0) {
+                saveCurrentConversation();
+            }
+            messages = [];
+            currentConversationId = null;
+            chatContainer.querySelectorAll('.message').forEach(el => el.remove());
+            showWelcome();
+            scrollBottomBtn.classList.remove('visible');
+        }
+
+        function openSidebar() { sidebar.classList.add('open'); sidebarOverlay.classList.add('open'); }
+        function closeSidebar() { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); }
 
         function updateThinkingToggle() {
             const model = modelSelect.value;
@@ -489,6 +642,7 @@
                 btnSend.disabled = false;
                 scrollToBottom();
                 updateScrollBtn();
+                saveCurrentConversation();
             }
         }
 
@@ -502,10 +656,12 @@
         btnSend.addEventListener('click', () => { 
             if(chatInput.value.trim()) sendMessage(chatInput.value); 
         });
-        btnClear.addEventListener('click', () => { 
-            if(messages.length || isGenerating) { 
-                if(confirm('清除对话？')) clearChat(); 
-            } else showToast('对话已空'); 
+        
+        document.getElementById('btnMenu').addEventListener('click', openSidebar);
+        document.getElementById('btnCloseSidebar').addEventListener('click', closeSidebar);
+        sidebarOverlay.addEventListener('click', closeSidebar);
+        document.getElementById('btnNewTopic').addEventListener('click', () => {
+            startNewConversation();
         });
         
         scrollBottomBtn.addEventListener('click', () => { 
@@ -521,7 +677,7 @@
             }
         });
 
-        chatInput.focus();
+        renderSidebarList();
     })();
 </script>
 </body>
