@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AI 聊天助手 · 多模型</title>
+    <title>金龙AI</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
@@ -248,12 +248,12 @@
         <div class="header-left">
             <div class="logo-icon">🧠</div>
             <div>
-                <div class="header-title">AI 聊天助手</div>
-                <div class="header-subtitle">多模型支持 · 有记忆</div>
+                <div class="header-title">金龙AI</div>
+                <div class="header-subtitle">你的AI助手</div>
             </div>
         </div>
         <div class="header-actions">
-            <button class="btn-icon" id="btnNewTopic" title="新话题">💬</button>
+            <button class="btn-icon" id="btnNewTopic" title="新话题">💬新话题</button>
         </div>
     </div>
 </div>
@@ -279,8 +279,8 @@
     <div class="welcome-wrap" id="welcomeWrap">
         <div class="welcome-card">
             <div class="welcome-emoji">✨</div>
-            <div class="welcome-title">你好，我是 AI 聊天助手</div>
-            <div class="welcome-desc">支持多种模型，拥有记忆功能<br>点击下方输入框开始对话</div>
+            <div class="welcome-title">你好，我是 金龙AI 助手</div>
+            <div class="welcome-desc">支持算命，解答任何问题，拥有记忆<br>点击下方输入框开始对话</div>
         </div>
     </div>
 </div>
@@ -350,7 +350,7 @@
         function getConversations() {
             try {
                 return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-            } catch { return []; }
+            } catch (e) { return []; }
         }
 
         function saveConversations(convs) {
