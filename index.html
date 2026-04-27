@@ -1,303 +1,529 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <title>AI 聊天 - 多模型（有记忆）</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; height: 100vh; padding: 10px; }
-    .app { width: 100%; max-width: 800px; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; height: 90vh; }
-    h2 { padding: 20px; background: linear-gradient(135deg, #0c8ce9, #16b1f5); color: white; font-weight: 600; text-align: center; }
-    #chatBox { flex: 1; overflow-y: auto; padding: 20px; background: #fafafa; }
-    .message { margin-bottom: 16px; display: flex; flex-direction: column; }
-    .message.user { align-items: flex-end; }
-    .message.assistant { align-items: flex-start; }
-    .bubble { max-width: 80%; padding: 12px 16px; border-radius: 18px; line-height: 1.5; word-break: break-word; }
-    .user .bubble { background: #007aff; color: white; border-bottom-right-radius: 4px; }
-    .assistant .bubble { background: #e9e9ea; color: #1c1c1e; border-bottom-left-radius: 4px; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AI 聊天助手 · 多模型</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f0f14;
+            --surface: #1a1a24;
+            --surface-2: #222230;
+            --surface-3: #2a2a3a;
+            --text: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-tertiary: #6b6b7d;
+            --accent: #6c5ce7;
+            --accent-light: #8b7cf0;
+            --accent-glow: rgba(108, 92, 231, 0.25);
+            --user-bubble: #2d2b5e;
+            --user-bubble-border: #3d3a72;
+            --ai-bubble: #1e1e2c;
+            --ai-bubble-border: #2a2a3a;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --radius-sm: 10px;
+            --radius: 16px;
+            --radius-lg: 22px;
+            --radius-xl: 28px;
+            --shadow: 0 2px 12px rgba(0,0,0,0.3);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+            --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+            --font-mono: 'SF Mono','Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace;
+            --safe-bottom: env(safe-area-inset-bottom, 16px);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html { height:100%; -webkit-tap-highlight-color:transparent; -webkit-text-size-adjust:100%; -webkit-font-smoothing:antialiased; overscroll-behavior:none; }
+        body {
+            font-family: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Helvetica Neue',Arial,sans-serif;
+            background: var(--bg); color:var(--text); height:100%; height:100dvh; overflow:hidden;
+            display:flex; flex-direction:column; user-select:none; -webkit-user-select:none; position:relative;
+        }
+        .header {
+            flex-shrink:0; padding:12px 16px; padding-top:max(12px, env(safe-area-inset-top,12px));
+            background:var(--surface); border-bottom:1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; justify-content:space-between; gap:12px; z-index:10;
+            backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+        }
+        .header-left { display:flex; align-items:center; gap:10px; min-width:0; flex:1; }
+        .logo-icon {
+            width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#6c5ce7,#a29bfe);
+            display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:20px; box-shadow:0 4px 15px var(--accent-glow);
+        }
+        .header-title { font-size:17px; font-weight:700; letter-spacing:-0.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .header-subtitle { font-size:11px; color:var(--text-tertiary); font-weight:500; letter-spacing:0.2px; }
+        .header-actions { display:flex; gap:6px; flex-shrink:0; }
+        .btn-icon {
+            width:36px; height:36px; border-radius:50%; border:none; background:var(--surface-2); color:var(--text-secondary);
+            cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; transition:var(--transition);
+            -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+        }
+        .btn-icon:active { background:var(--surface-3); transform:scale(0.94); color:var(--text); }
+        .btn-icon.danger:active { background:rgba(231,76,60,0.2); color:var(--danger); }
 
-    .waiting { opacity: 0.6; font-style: italic; }
+        .controls {
+            flex-shrink:0; padding:10px 16px; background:var(--surface); border-bottom:1px solid rgba(255,255,255,0.06);
+            display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+        }
+        .controls label { font-size:13px; color:var(--text-secondary); cursor:pointer; }
+        .controls select {
+            padding:8px 12px; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.1);
+            background:var(--surface-2); color:var(--text); font-size:14px; outline:none; transition:var(--transition);
+            cursor:pointer;
+        }
+        .controls select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+        .controls .toggle-label { display:flex; align-items:center; gap:6px; }
+        .toggle-switch {
+            width:44px; height:24px; border-radius:12px; background:var(--surface-3); position:relative; cursor:pointer;
+            transition:var(--transition); border:1px solid rgba(255,255,255,0.1); flex-shrink:0;
+        }
+        .toggle-switch.active { background:var(--accent); border-color:var(--accent-light); }
+        .toggle-switch::after {
+            content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+            background:#fff; transition:var(--transition); box-shadow:0 1px 3px rgba(0,0,0,0.3);
+        }
+        .toggle-switch.active::after { left:22px; }
+        .toggle-switch:disabled { opacity:0.4; cursor:not-allowed; }
+        .slow-tag { font-size:10px; background:var(--warning); color:#fff; padding:2px 5px; border-radius:6px; }
 
-    /* 推理过程样式 */
-    .reasoning-box {
-      margin-top: 8px;
-      padding: 10px 14px;
-      background: #f9f9f9;
-      border-left: 3px solid #ff9500;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #555;
-      white-space: pre-wrap;
-      display: none;
-    }
-    .reasoning-box .header {
-      font-size: 12px;
-      color: #ff9500;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
+        .chat-container {
+            flex:1; overflow-y:auto; overflow-x:hidden; padding:12px 12px 8px 12px; scroll-behavior:smooth;
+            -webkit-overflow-scrolling:touch; display:flex; flex-direction:column; gap:8px; overscroll-behavior-y:contain;
+        }
+        .chat-container::-webkit-scrollbar { width:4px; }
+        .chat-container::-webkit-scrollbar-track { background:transparent; }
+        .chat-container::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:10px; }
 
-    .controls { display: flex; align-items: center; gap: 12px; padding: 10px 15px; background: white; border-top: 1px solid #ddd; flex-wrap: wrap; }
-    .controls label { font-size: 14px; cursor: pointer; }
-    .controls select { margin-left: 4px; padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc; }
-    .form-area { display: flex; padding: 15px; gap: 10px; background: white; border-top: 1px solid #ddd; }
-    #userInput { flex: 1; padding: 12px 16px; border: 1px solid #ccc; border-radius: 24px; font-size: 16px; outline: none; transition: border 0.2s; }
-    #userInput:focus { border-color: #007aff; }
-    button { padding: 12px 24px; background: #007aff; color: white; border: none; border-radius: 24px; font-size: 16px; cursor: pointer; transition: background 0.2s; font-weight: 500; }
-    button:hover { background: #005ecb; }
-    button:disabled { background: #a0c4ff; cursor: not-allowed; }
-    .error .bubble { background: #ff3b30; color: white; }
-    .slow-tag { font-size: 12px; background: #ff9500; color: white; padding: 2px 6px; border-radius: 8px; margin-left: 4px; }
-  </style>
+        .welcome-wrap { flex:1; display:flex; align-items:center; justify-content:center; padding:20px; min-height:300px; }
+        .welcome-card { text-align:center; max-width:380px; animation:fadeInUp 0.5s ease-out; }
+        .welcome-emoji { font-size:56px; margin-bottom:16px; animation:float 3s ease-in-out infinite; }
+        .welcome-title { font-size:22px; font-weight:700; margin-bottom:6px; }
+        .welcome-desc { font-size:14px; color:var(--text-secondary); margin-bottom:20px; line-height:1.5; }
+
+        .message { display:flex; flex-direction:column; max-width:88%; animation:fadeInUp 0.3s ease-out; position:relative; }
+        .message.user { align-self:flex-end; align-items:flex-end; }
+        .message.assistant { align-self:flex-start; align-items:flex-start; }
+        .msg-bubble {
+            padding:12px 16px; border-radius:var(--radius-lg); font-size:15px; line-height:1.6;
+            word-break:break-word; position:relative; letter-spacing:-0.1px;
+        }
+        .message.user .msg-bubble { background:var(--user-bubble); border:1px solid var(--user-bubble-border); border-bottom-right-radius:6px; color:#e0dfff; }
+        .message.assistant .msg-bubble { background:var(--ai-bubble); border:1px solid var(--ai-bubble-border); border-bottom-left-radius:6px; color:var(--text); }
+        .msg-bubble pre {
+            background:#0a0a12; border-radius:var(--radius-sm); padding:12px 14px; overflow-x:auto; margin:8px 0;
+            font-family:var(--font-mono); font-size:13px; line-height:1.5; border:1px solid rgba(255,255,255,0.06); -webkit-overflow-scrolling:touch;
+        }
+        .msg-bubble code { font-family:var(--font-mono); font-size:13px; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px; }
+        .msg-bubble pre code { background:none; padding:0; }
+        .msg-bubble p { margin:4px 0; }
+        .msg-bubble p:first-child { margin-top:0; }
+        .msg-bubble p:last-child { margin-bottom:0; }
+        .msg-bubble ul,.msg-bubble ol { padding-left:20px; margin:6px 0; }
+        .msg-meta { font-size:10px; color:var(--text-tertiary); margin-top:4px; padding:0 4px; display:flex; gap:8px; align-items:center; }
+
+        .reasoning-box {
+            margin-bottom:8px; padding:12px 14px; background:var(--surface-2); border-left:3px solid var(--warning);
+            border-radius:var(--radius-sm); font-size:13px; color:var(--text-secondary); white-space:pre-wrap;
+            display:none;
+        }
+        .reasoning-box .header { font-size:11px; color:var(--warning); font-weight:600; margin-bottom:6px; letter-spacing:0.5px; text-transform:uppercase; }
+
+        .typing-dots { display:inline-flex; gap:4px; padding:4px 0; align-items:center; }
+        .typing-dots span { width:7px; height:7px; border-radius:50%; background:var(--text-tertiary); animation:typingBounce 1.4s ease-in-out infinite; }
+        .typing-dots span:nth-child(2) { animation-delay:0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay:0.4s; }
+
+        .scroll-bottom-btn {
+            position:absolute; bottom:90px; left:50%; transform:translateX(-50%); width:40px; height:40px;
+            border-radius:50%; background:var(--surface-2); border:1px solid rgba(255,255,255,0.12); color:var(--text-secondary);
+            cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; z-index:20;
+            box-shadow:var(--shadow-lg); transition:var(--transition); opacity:0; pointer-events:none;
+        }
+        .scroll-bottom-btn.visible { opacity:1; pointer-events:auto; animation:fadeInUp 0.25s ease-out; }
+        .scroll-bottom-btn:active { background:var(--surface-3); transform:translateX(-50%) scale(0.9); }
+
+        .input-area {
+            flex-shrink:0; padding:10px 12px; padding-bottom:max(10px, var(--safe-bottom)); background:var(--surface);
+            border-top:1px solid rgba(255,255,255,0.06); display:flex; gap:8px; align-items:flex-end; z-index:10;
+            backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+        }
+        .input-wrapper {
+            flex:1; position:relative; background:var(--surface-2); border-radius:var(--radius-xl);
+            border:2px solid transparent; transition:var(--transition); display:flex; align-items:flex-end; min-height:44px;
+        }
+        .input-wrapper:focus-within { border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-glow); background:var(--surface-3); }
+        .chat-input {
+            flex:1; resize:none; border:none; background:transparent; color:var(--text); font-size:16px;
+            font-family:inherit; line-height:1.5; padding:10px 14px; max-height:140px; min-height:24px;
+            outline:none; letter-spacing:-0.1px; -webkit-user-select:text; user-select:text;
+        }
+        .chat-input::placeholder { color:var(--text-tertiary); opacity:0.7; }
+        .btn-send {
+            width:44px; height:44px; min-width:44px; border-radius:50%; border:none; background:var(--accent); color:#fff;
+            cursor:pointer; font-size:20px; display:flex; align-items:center; justify-content:center; transition:var(--transition);
+            flex-shrink:0; touch-action:manipulation; box-shadow:0 4px 16px var(--accent-glow); position:relative;
+        }
+        .btn-send:active { transform:scale(0.9); background:var(--accent-light); }
+        .btn-send:disabled { background:var(--surface-3); color:var(--text-tertiary); cursor:not-allowed; box-shadow:none; }
+
+        .toast {
+            position:fixed; top:16px; top:max(16px, env(safe-area-inset-top,16px)); left:50%;
+            transform:translateX(-50%) translateY(-120px); background:var(--surface-3); color:var(--text);
+            padding:10px 18px; border-radius:20px; font-size:13px; font-weight:500; z-index:100; pointer-events:none;
+            transition:transform 0.3s; box-shadow:var(--shadow-lg); border:1px solid rgba(255,255,255,0.1);
+        }
+        .toast.show { transform:translateX(-50%) translateY(0); }
+        .toast.error { border-color:rgba(231,76,60,0.4); color:#f8716d; }
+
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
+        @keyframes typingBounce { 0%,60%,100% { transform:translateY(0); opacity:0.4; } 30% { transform:translateY(-10px); opacity:1; } }
+
+        @media (min-width:768px) {
+            .message { max-width:70%; }
+            .chat-container { padding:20px 24px 12px; }
+            .input-area { padding:14px 20px; }
+            .header { padding:14px 20px; }
+            .controls { padding:12px 20px; }
+            .msg-bubble { padding:14px 20px; font-size:15px; }
+        }
+        @media (min-width:1024px) {
+            .message { max-width:60%; }
+            .chat-container { padding:24px 32px 16px; max-width:900px; margin:0 auto; width:100%; }
+            .input-area { max-width:900px; margin:0 auto; width:100%; padding:14px 32px; }
+            .header { padding:14px 32px; }
+            .controls { padding:12px 32px; }
+        }
+    </style>
 </head>
 <body>
-  <div class="app">
-    <h2>💬 AI 聊天助手</h2>
-    <div id="chatBox"></div>
-    <div class="controls">
-      <label for="modelSelect">模型：</label>
-      <select id="modelSelect">
+
+<div class="header">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div class="header-left">
+            <div class="logo-icon">🧠</div>
+            <div>
+                <div class="header-title">AI 聊天助手</div>
+                <div class="header-subtitle">多模型支持 · 有记忆</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon danger" id="btnClear" title="清除对话">🗑️</button>
+        </div>
+    </div>
+</div>
+
+<div class="controls">
+    <label for="modelSelect">模型：</label>
+    <select id="modelSelect">
         <option value="deepseek-ai/deepseek-v3.1-terminus">DeepSeek V3.1 Terminus</option>
         <option value="minimaxai/minimax-m2.7">MiniMax M2.7</option>
         <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2</option>
         <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
         <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
-        <option value="qwen/qwen3-next-80b-a3b-thinking" selected>Qwen 3 Next 80B Thinking</option>
-      </select>
-      <input type="checkbox" id="thinkingToggle" disabled />
-      <label for="thinkingToggle">🤔 深度思考 <span class="slow-tag" style="font-size:11px;">慢</span></label>
-      <button id="clearHistoryBtn" style="background:#ff3b30; padding:8px 16px; font-size:14px;">清空记忆</button>
+        <option value="qwen/qwen3-next-80b-a3b-thinking" selected>Qwen 3 Next 80B</option>
+    </select>
+    <label class="toggle-label">
+        <span>🧠 深度思考</span>
+        <span class="slow-tag">慢</span>
+        <div class="toggle-switch" id="thinkingToggle"></div>
+    </label>
+</div>
+
+<div class="chat-container" id="chatContainer">
+    <div class="welcome-wrap" id="welcomeWrap">
+        <div class="welcome-card">
+            <div class="welcome-emoji">✨</div>
+            <div class="welcome-title">你好，我是 AI 聊天助手</div>
+            <div class="welcome-desc">支持多种模型，拥有记忆功能<br>点击下方输入框开始对话</div>
+        </div>
     </div>
-    <div class="form-area">
-      <input type="text" id="userInput" placeholder="输入消息..." autofocus />
-      <button id="sendBtn" type="button">发送</button>
+</div>
+
+<button class="scroll-bottom-btn" id="scrollBottomBtn">↓</button>
+
+<div class="input-area">
+    <div class="input-wrapper">
+        <textarea class="chat-input" id="chatInput" rows="1" placeholder="输入消息..."></textarea>
     </div>
-  </div>
+    <button class="btn-send" id="btnSend">➤</button>
+</div>
 
-  <script>
-    const chatBox = document.getElementById('chatBox');
-    const userInput = document.getElementById('userInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-    const modelSelect = document.getElementById('modelSelect');
-    const thinkingToggle = document.getElementById('thinkingToggle');
+<div class="toast" id="toast"></div>
 
-    // ========== 消息历史 ==========
-    let messageHistory = [];
+<script>
+    (function() {
+        const chatContainer = document.getElementById('chatContainer');
+        const welcomeWrap = document.getElementById('welcomeWrap');
+        const chatInput = document.getElementById('chatInput');
+        const btnSend = document.getElementById('btnSend');
+        const btnClear = document.getElementById('btnClear');
+        const scrollBottomBtn = document.getElementById('scrollBottomBtn');
+        const modelSelect = document.getElementById('modelSelect');
+        const thinkingToggle = document.getElementById('thinkingToggle');
+        const toast = document.getElementById('toast');
 
-    // 模型配置 — 千问支持可选思考
-    const modelConfigs = {
-      'deepseek-ai/deepseek-v3.1-terminus': {
-        temperature: 0.2, top_p: 0.7, max_tokens: 8192, seed: 42,
-        supportsThinking: false, defaultThinking: false,
-        chat_template_kwargs: { thinking: false }
-      },
-      'minimaxai/minimax-m2.7': {
-        temperature: 1, top_p: 0.95, max_tokens: 2048,
-        supportsThinking: false, defaultThinking: false,
-        chat_template_kwargs: {}
-      },
-      'deepseek-ai/deepseek-v3.2': {
-        temperature: 1, top_p: 0.95, max_tokens: 2048, seed: 42,
-        supportsThinking: false, defaultThinking: false,
-        chat_template_kwargs: { thinking: false }
-      },
-      'nvidia/nemotron-3-super-120b-a12b': {
-        temperature: 1, top_p: 0.95, max_tokens: 2048,
-        supportsThinking: false, defaultThinking: false,
-        chat_template_kwargs: { enable_thinking: false, reasoning_budget: 0 }
-      },
-      'qwen/qwen3.5-122b-a10b': {
-        temperature: 0.70, top_p: 0.80, max_tokens: 16384,
-        supportsThinking: true,          // 支持思考
-        defaultThinking: false,          // 默认关闭
-        thinkingKey: 'enable_thinking'   // 参数名
-      },
-      'qwen/qwen3-next-80b-a3b-thinking': {
-        temperature: 0.6, top_p: 0.7, max_tokens: 4096, frequency_penalty: 0, presence_penalty: 0,
-        supportsThinking: true,
-        defaultThinking: false,
-        thinkingKey: 'enable_thinking'
-      }
-    };
+        const modelConfigs = {
+            'deepseek-ai/deepseek-v3.1-terminus': {
+                temperature: 0.2, top_p: 0.7, max_tokens: 8192, seed: 42,
+                supportsThinking: false, defaultThinking: false,
+                chat_template_kwargs: { thinking: false }
+            },
+            'minimaxai/minimax-m2.7': {
+                temperature: 1, top_p: 0.95, max_tokens: 2048,
+                supportsThinking: false, defaultThinking: false,
+                chat_template_kwargs: {}
+            },
+            'deepseek-ai/deepseek-v3.2': {
+                temperature: 1, top_p: 0.95, max_tokens: 2048, seed: 42,
+                supportsThinking: false, defaultThinking: false,
+                chat_template_kwargs: { thinking: false }
+            },
+            'nvidia/nemotron-3-super-120b-a12b': {
+                temperature: 1, top_p: 0.95, max_tokens: 2048,
+                supportsThinking: false, defaultThinking: false,
+                chat_template_kwargs: { enable_thinking: false, reasoning_budget: 0 }
+            },
+            'qwen/qwen3.5-122b-a10b': {
+                temperature: 0.70, top_p: 0.80, max_tokens: 16384,
+                supportsThinking: true, defaultThinking: false
+            },
+            'qwen/qwen3-next-80b-a3b-thinking': {
+                temperature: 0.6, top_p: 0.7, max_tokens: 4096, frequency_penalty: 0, presence_penalty: 0,
+                supportsThinking: true, defaultThinking: false
+            }
+        };
 
-    // 切换模型时更新深度思考开关
-    function updateThinkingToggle() {
-      const model = modelSelect.value;
-      const config = modelConfigs[model];
-      if (config.supportsThinking) {
-        thinkingToggle.disabled = false;
-        thinkingToggle.checked = config.defaultThinking;
-      } else {
-        thinkingToggle.disabled = true;
-        thinkingToggle.checked = false;
-      }
-    }
-    modelSelect.addEventListener('change', updateThinkingToggle);
-    updateThinkingToggle();
+        let messages = [];
+        let isGenerating = false;
 
-    const waitingPhrases = [
-      '正在理解问题...',
-      '正在组织语言...',
-      '马上就好...',
-      '正在查阅知识...',
-      '正在整理思路...'
-    ];
-    let waitingIndex = 0;
-    let waitingTimer = null;
+        function updateThinkingToggle() {
+            const model = modelSelect.value;
+            const config = modelConfigs[model];
+            if (config.supportsThinking) {
+                thinkingToggle.classList.remove('disabled');
+                thinkingToggle.style.pointerEvents = 'auto';
+                thinkingToggle.style.opacity = '1';
+            } else {
+                thinkingToggle.classList.add('disabled');
+                thinkingToggle.style.pointerEvents = 'none';
+                thinkingToggle.style.opacity = '0.4';
+                thinkingToggle.classList.remove('active');
+            }
+        }
+        modelSelect.addEventListener('change', updateThinkingToggle);
+        thinkingToggle.addEventListener('click', () => {
+            const model = modelSelect.value;
+            if (modelConfigs[model].supportsThinking) {
+                thinkingToggle.classList.toggle('active');
+            }
+        });
+        updateThinkingToggle();
 
-    function addMessage(role, text, saveToHistory = true) {
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `message ${role}`;
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      bubble.textContent = text;
-      msgDiv.appendChild(bubble);
-      chatBox.appendChild(msgDiv);
-      chatBox.scrollTop = chatBox.scrollHeight;
+        let toastTimer;
+        function showToast(msg, isError=false) {
+            clearTimeout(toastTimer);
+            toast.textContent = msg;
+            toast.className = 'toast ' + (isError ? 'error' : '');
+            toast.classList.add('show');
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+        }
 
-      if (saveToHistory) {
-        messageHistory.push({ role, content: text });
-      }
-      return { msgDiv, bubble };
-    }
+        function isNearBottom(th=60) { 
+            return chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < th; 
+        }
+        function scrollToBottom(smooth=true) {
+            if (smooth) chatContainer.scrollTo({top: chatContainer.scrollHeight, behavior:'smooth'});
+            else chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        function updateScrollBtn() { 
+            scrollBottomBtn.classList.toggle('visible', !isNearBottom(80)); 
+        }
 
-    clearHistoryBtn.addEventListener('click', () => {
-      messageHistory = [];
-      chatBox.innerHTML = '';
-      addMessage('assistant', '记忆已清空，我们可以重新开始啦！', false);
-    });
+        function autoResize() {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
+        }
 
-    async function sendMessage() {
-      const userMsg = userInput.value.trim();
-      if (!userMsg) return;
+        function createMsgEl(role, content='') {
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            
+            if (role === 'assistant') {
+                const reasoningBox = document.createElement('div');
+                reasoningBox.className = 'reasoning-box';
+                reasoningBox.innerHTML = '<div class="header">🧠 推理过程</div><div class="content"></div>';
+                reasoningBox.style.display = 'none';
+                div.appendChild(reasoningBox);
+            }
 
-      addMessage('user', userMsg);
-      userInput.value = '';
-      sendBtn.disabled = true;
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            if (role === 'assistant' && !content) {
+                bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+            } else if (content) {
+                bubble.innerHTML = marked.parse(content) || content;
+            }
 
-      const { msgDiv: assistantMsgDiv, bubble: assistantBubble } = addMessage('assistant', '', false);
+            const meta = document.createElement('div');
+            meta.className = 'msg-meta';
+            meta.textContent = new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+            
+            div.appendChild(bubble);
+            div.appendChild(meta);
+            return div;
+        }
 
-      const reasoningBox = document.createElement('div');
-      reasoningBox.className = 'reasoning-box';
-      reasoningBox.innerHTML = '<div class="header">🤔 推理过程</div><div class="content"></div>';
-      reasoningBox.style.display = 'none';
-      assistantMsgDiv.insertBefore(reasoningBox, assistantBubble);
-      const reasoningContent = reasoningBox.querySelector('.content');
-      let reasoningText = '';
+        function hideWelcome() { if(welcomeWrap) welcomeWrap.style.display = 'none'; }
+        function showWelcome() { if(welcomeWrap) welcomeWrap.style.display = ''; }
 
-      // 等待提示
-      waitingIndex = 0;
-      assistantBubble.textContent = waitingPhrases[0];
-      assistantBubble.classList.add('waiting');
-      waitingTimer = setInterval(() => {
-        waitingIndex = (waitingIndex + 1) % waitingPhrases.length;
-        assistantBubble.textContent = waitingPhrases[waitingIndex];
-      }, 2000);
+        async function sendMessage(userContent) {
+            if (isGenerating || !userContent.trim()) return;
+            
+            hideWelcome();
+            isGenerating = true;
+            btnSend.disabled = true;
+            chatInput.value = ''; 
+            chatInput.style.height = 'auto';
+            
+            messages.push({role:'user', content:userContent.trim()});
+            chatContainer.appendChild(createMsgEl('user', userContent.trim()));
+            scrollToBottom();
 
-      const model = modelSelect.value;
-      const config = modelConfigs[model];
+            const assistantEl = createMsgEl('assistant', '');
+            chatContainer.appendChild(assistantEl);
+            scrollToBottom();
+            
+            const reasoningBox = assistantEl.querySelector('.reasoning-box');
+            const reasoningContent = reasoningBox ? reasoningBox.querySelector('.content') : null;
+            const bubble = assistantEl.querySelector('.msg-bubble');
+            
+            let fullContent = '';
+            let reasoningText = '';
 
-      // 构建 chat_template_kwargs
-      let chatTemplateKwargs = {};
-      if (config.supportsThinking) {
-        chatTemplateKwargs = { enable_thinking: thinkingToggle.checked };
-      } else {
-        chatTemplateKwargs = config.chat_template_kwargs;
-      }
+            const model = modelSelect.value;
+            const config = modelConfigs[model];
+            
+            let chatTemplateKwargs = {};
+            if (config.supportsThinking) {
+                chatTemplateKwargs = { enable_thinking: thinkingToggle.classList.contains('active') };
+            } else {
+                chatTemplateKwargs = config.chat_template_kwargs || {};
+            }
 
-      const bodyParams = {
-        model: model,
-        messages: [
-          ...messageHistory.map(m => ({ role: m.role, content: m.content }))
-        ],
-        temperature: config.temperature,
-        top_p: config.top_p,
-        max_tokens: config.max_tokens,
-        stream: true,
-        chat_template_kwargs: chatTemplateKwargs
-      };
-      if (config.seed !== undefined) bodyParams.seed = config.seed;
+            const payload = {
+                model: model,
+                messages: [...messages.map(m => ({ role: m.role, content: m.content }))],
+                temperature: config.temperature,
+                top_p: config.top_p,
+                max_tokens: config.max_tokens,
+                stream: true,
+                chat_template_kwargs: chatTemplateKwargs
+            };
+            if (config.seed !== undefined) payload.seed = config.seed;
 
-      try {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyParams),
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) throw new Error('HTTP 错误 ' + response.status);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line.trim() || !line.startsWith('data: ')) continue;
+                        const jsonStr = line.slice(6).trim();
+                        if (jsonStr === '[DONE]') continue;
+
+                        try {
+                            const parsed = JSON.parse(jsonStr);
+                            const delta = parsed.choices?.[0]?.delta;
+
+                            if (delta?.reasoning_content && reasoningContent) {
+                                reasoningText += delta.reasoning_content;
+                                reasoningContent.textContent = reasoningText;
+                                reasoningBox.style.display = 'block';
+                                if (!fullContent) {
+                                    bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+                                }
+                                scrollToBottom(false);
+                            }
+
+                            if (delta?.content) {
+                                fullContent += delta.content;
+                                bubble.innerHTML = marked.parse(fullContent) || fullContent;
+                                if (isNearBottom(40)) scrollToBottom(false);
+                            }
+                        } catch (e) {}
+                    }
+                }
+
+                if (fullContent) {
+                    messages.push({ role: 'assistant', content: fullContent });
+                } else if (!reasoningText) {
+                    bubble.innerHTML = '<p>（无回复内容）</p>';
+                } else {
+                    messages.push({ role: 'assistant', content: '[推理回复] ' + reasoningText });
+                }
+
+            } catch (err) {
+                bubble.innerHTML = `<p>❌ 请求失败：${err.message}</p>`;
+                showToast('请求失败: ' + err.message, true);
+            } finally {
+                isGenerating = false;
+                btnSend.disabled = false;
+                scrollToBottom();
+                updateScrollBtn();
+                chatInput.focus();
+            }
+        }
+
+        function clearChat() {
+            messages = [];
+            chatContainer.querySelectorAll('.message').forEach(el => el.remove());
+            showWelcome();
+            scrollBottomBtn.classList.remove('visible');
+        }
+
+        btnSend.addEventListener('click', () => { 
+            if(chatInput.value.trim()) sendMessage(chatInput.value); 
+        });
+        btnClear.addEventListener('click', () => { 
+            if(messages.length || isGenerating) { 
+                if(confirm('清除对话？')) clearChat(); 
+            } else showToast('对话已空'); 
+        });
+        
+        scrollBottomBtn.addEventListener('click', () => { 
+            scrollToBottom(); 
+            scrollBottomBtn.classList.remove('visible'); 
+        });
+        chatContainer.addEventListener('scroll', updateScrollBtn);
+        chatInput.addEventListener('input', autoResize);
+        chatInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                if(chatInput.value.trim()) sendMessage(chatInput.value); 
+            }
         });
 
-        if (!response.ok) throw new Error('HTTP 错误 ' + response.status);
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let fullReply = '';
-        let firstChunk = true;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const jsonStr = line.substring(6).trim();
-              if (jsonStr === '[DONE]') continue;
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const delta = parsed.choices?.[0]?.delta;
-
-                // 处理推理内容
-                if (delta?.reasoning_content) {
-                  reasoningText += delta.reasoning_content;
-                  reasoningContent.textContent = reasoningText;
-                  reasoningBox.style.display = 'block';
-                  if (!fullReply) assistantBubble.textContent = '正在深度思考...';
-                  chatBox.scrollTop = chatBox.scrollHeight;
-                }
-
-                // 处理正式回答
-                if (delta?.content) {
-                  if (firstChunk) {
-                    clearInterval(waitingTimer);
-                    assistantBubble.classList.remove('waiting');
-                    firstChunk = false;
-                  }
-                  fullReply += delta.content;
-                  assistantBubble.textContent = fullReply;
-                  chatBox.scrollTop = chatBox.scrollHeight;
-                }
-              } catch (e) {}
-            }
-          }
-        }
-
-        if (fullReply) {
-          messageHistory.push({ role: 'assistant', content: fullReply });
-        } else if (!reasoningText) {
-          clearInterval(waitingTimer);
-          assistantBubble.classList.remove('waiting');
-          assistantBubble.textContent = '（无回复内容）';
-        } else {
-          // 只有推理没有正式回答，把推理当回答存
-          messageHistory.push({ role: 'assistant', content: '[推理回复] ' + reasoningText });
-        }
-
-      } catch (err) {
-        clearInterval(waitingTimer);
-        assistantBubble.classList.remove('waiting');
-        assistantBubble.textContent = '请求失败：' + err.message;
-      } finally {
-        sendBtn.disabled = false;
-        userInput.focus();
-      }
-    }
-
-    sendBtn.addEventListener('click', sendMessage);
-    userInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
-    });
-  </script>
+        chatInput.focus();
+    })();
+</script>
 </body>
 </html>
