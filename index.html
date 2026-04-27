@@ -16,19 +16,8 @@
     .bubble { max-width: 80%; padding: 12px 16px; border-radius: 18px; line-height: 1.5; word-break: break-word; }
     .user .bubble { background: #007aff; color: white; border-bottom-right-radius: 4px; }
     .assistant .bubble { background: #e9e9ea; color: #1c1c1e; border-bottom-left-radius: 4px; }
-    
+
     .waiting { opacity: 0.6; font-style: italic; }
-    .dot-animation::after {
-      content: '';
-      animation: dots 1.5s steps(4, end) infinite;
-    }
-    @keyframes dots {
-      0% { content: ''; }
-      25% { content: '.'; }
-      50% { content: '..'; }
-      75% { content: '...'; }
-      100% { content: ''; }
-    }
 
     .controls { display: flex; align-items: center; gap: 12px; padding: 10px 15px; background: white; border-top: 1px solid #ddd; flex-wrap: wrap; }
     .controls label { font-size: 14px; }
@@ -53,6 +42,7 @@
         <option value="minimaxai/minimax-m2.7">MiniMax M2.7</option>
         <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2</option>
         <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
+        <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
       </select>
     </div>
     <div class="form-area">
@@ -67,7 +57,7 @@
     const sendBtn = document.getElementById('sendBtn');
     const modelSelect = document.getElementById('modelSelect');
 
-    // 模型配置（V3.1 Terminus 已更新为新参数）
+    // 所有模型的固定参数（全部不开深度思考）
     const modelConfigs = {
       'deepseek-ai/deepseek-v3.1-terminus': {
         temperature: 0.2,
@@ -94,6 +84,12 @@
         top_p: 0.95,
         max_tokens: 2048,
         chat_template_kwargs: { enable_thinking: false, reasoning_budget: 0 }
+      },
+      'qwen/qwen3.5-122b-a10b': {
+        temperature: 0.70,
+        top_p: 0.80,
+        max_tokens: 16384,
+        chat_template_kwargs: { enable_thinking: false }
       }
     };
 
