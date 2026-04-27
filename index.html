@@ -179,12 +179,11 @@
 
       const { msgDiv: assistantMsgDiv, bubble: assistantBubble } = addMessage('assistant', '', false);
 
-      // 推理区域（千问开启思考时会用到）
       const reasoningBox = document.createElement('div');
       reasoningBox.className = 'reasoning-box';
       reasoningBox.innerHTML = '<div class="header">🤔 推理过程</div><div class="content"></div>';
       reasoningBox.style.display = 'none';
-      assistantMsgDiv.appendChild(reasoningBox);
+      assistantMsgDiv.insertBefore(reasoningBox, assistantBubble);
       const reasoningContent = reasoningBox.querySelector('.content');
       let reasoningText = '';
 
