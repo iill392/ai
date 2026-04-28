@@ -296,6 +296,7 @@
         <option value="qwen/qwen3-next-80b-a3b-thinking" selected>Qwen 3 Next 80B</option>
                 <option value="openai/gpt-oss-120b">GPT OSS 120B</option>
                 <option value="google/gemma-3n-e4b-it">Google Gemma 3N E4B</option>
+                <option value="bytedance/seed-oss-36b-instruct">ByteDance Seed OSS 36B</option>
             </select>
     <label class="toggle-label">
         <span>🧠 深度思考</span>
@@ -390,6 +391,11 @@
                 temperature: 0.2, top_p: 0.7, max_tokens: 512, frequency_penalty: 0, presence_penalty: 0,
                 supportsThinking: false, defaultThinking: false,
                 supportsVision: true
+            },
+            'bytedance/seed-oss-36b-instruct': {
+                temperature: 1.1, top_p: 0.95, max_tokens: 4096, frequency_penalty: 0, presence_penalty: 0,
+                supportsThinking: true, defaultThinking: false,
+                chat_template_kwargs: { thinking_budget: -1 }
             }
         };
 
