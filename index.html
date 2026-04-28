@@ -38,8 +38,12 @@
         html { height:100%; -webkit-tap-highlight-color:transparent; -webkit-text-size-adjust:100%; -webkit-font-smoothing:antialiased; overscroll-behavior:none; }
         body {
             font-family: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Helvetica Neue',Arial,sans-serif;
-            background: var(--bg); color:var(--text); height:100%; height:100dvh; overflow:hidden;
+            background: var(--bg); color:var(--text); height:100vh; height:100dvh; overflow:hidden;
             display:flex; flex-direction:column; user-select:none; -webkit-user-select:none; position:relative;
+        }
+
+        .app-container {
+            display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden;
         }
         .header {
             flex-shrink:0; padding:12px 16px; padding-top:max(12px, env(safe-area-inset-top,12px));
@@ -264,6 +268,7 @@
     <div class="sidebar-list" id="sidebarList"></div>
 </div>
 
+<div class="app-container">
 <div class="header">
     <div style="display:flex;align-items:center;gap:10px;width:100%;">
         <button class="btn-icon" id="btnMenu" title="菜单">☰</button>
@@ -327,6 +332,7 @@
 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
 
 <div class="toast" id="toast"></div>
+</div>
 
 <script>
     (function() {
@@ -843,67 +849,83 @@
             
             let originalHeight = window.innerHeight;
             let isKeyboardVisible = false;
+            let keyboardHeight = 0;
 
             function handleViewportResize(e) {
                 const viewport = e.target;
-                const keyboardHeight = originalHeight - viewport.height;
+                const newHeight = viewport.height;
+                const diff = originalHeight - newHeight;
                 
-                if (keyboardHeight > 100 && viewport.height < originalHeight * 0.8) {
+                if (diff > 100 && diff < originalHeight * 0.7) {
+                    keyboardHeight = diff;
                     if (!isKeyboardVisible) {
                         isKeyboardVisible = true;
-                        document.body.classList.add('keyboard-visible');
-                        adjustForKeyboard(keyboardHeight);
+                        applyKeyboardOffset(keyboardHeight);
+                    } else {
+                        applyKeyboardOffset(keyboardHeight);
                     }
-                } else {
+                } else if (diff <= 100 || diff >= originalHeight * 0.7) {
                     if (isKeyboardVisible) {
                         isKeyboardVisible = false;
-                        document.body.classList.remove('keyboard-visible');
-                        resetKeyboardAdjustment();
+                        keyboardHeight = 0;
+                        resetKeyboardOffset();
                     }
                 }
             }
 
             function handleViewportScroll(e) {
                 const viewport = e.target;
-                if (isKeyboardVisible) {
-                    document.body.style.transform = `translateY(${viewport.offsetTop}px)`;
+                if (isKeyboardVisible && viewport.offsetTop !== 0) {
+                    applyKeyboardOffset(keyboardHeight);
                 }
             }
 
-            function handleResize() {
+            function handleWindowResize() {
                 const currentHeight = window.innerHeight;
-                const keyboardHeight = originalHeight - currentHeight;
+                const diff = originalHeight - currentHeight;
                 
-                if (keyboardHeight > 100 && currentHeight < originalHeight * 0.8) {
+                if (diff > 100 && diff < originalHeight * 0.7) {
+                    keyboardHeight = diff;
                     if (!isKeyboardVisible) {
                         isKeyboardVisible = true;
-                        document.body.classList.add('keyboard-visible');
-                        adjustForKeyboard(keyboardHeight);
+                        applyKeyboardOffset(keyboardHeight);
                     }
-                } else {
+                } else if (diff <= 100) {
                     if (isKeyboardVisible) {
                         isKeyboardVisible = false;
-                        document.body.classList.remove('keyboard-visible');
-                        resetKeyboardAdjustment();
+                        keyboardHeight = 0;
+                        resetKeyboardOffset();
                     }
                 }
             }
 
-            function adjustForKeyboard(height) {
-                const inputArea = document.querySelector('.input-area');
-                if (inputArea) {
-                    const inputRect = inputArea.getBoundingClientRect();
-                    const overlap = inputRect.bottom - (window.innerHeight - height);
-                    if (overlap > 0) {
-                        document.body.style.transform = `translateY(-${overlap}px)`;
-                        document.body.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+            function applyKeyboardOffset(height) {
+                const appContainer = document.querySelector('.app-container');
+                if (appContainer) {
+                    const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                    const inputArea = document.querySelector('.input-area');
+                    if (inputArea) {
+                        const inputRect = inputArea.getBoundingClientRect();
+                        const bottom = viewportHeight - inputRect.bottom;
+                        const offset = Math.max(0, height - bottom);
+                        
+                        if (offset > 0) {
+                            appContainer.style.transform = `translateY(-${offset}px)`;
+                            appContainer.style.transition = 'transform 0.25s ease-out';
+                        } else {
+                            appContainer.style.transform = '';
+                            appContainer.style.transition = '';
+                        }
                     }
                 }
             }
 
-            function resetKeyboardAdjustment() {
-                document.body.style.transform = '';
-                document.body.style.transition = '';
+            function resetKeyboardOffset() {
+                const appContainer = document.querySelector('.app-container');
+                if (appContainer) {
+                    appContainer.style.transform = '';
+                    appContainer.style.transition = 'transform 0.25s ease-out';
+                }
             }
 
             function initKeyboardFix() {
@@ -911,9 +933,22 @@
                 if (typeof window.visualViewport !== 'undefined') {
                     window.visualViewport.addEventListener('resize', handleViewportResize);
                     window.visualViewport.addEventListener('scroll', handleViewportScroll);
-                } else {
-                    window.addEventListener('resize', handleResize);
+                    window.visualViewport.addEventListener('orientationchange', () => {
+                        setTimeout(() => {
+                            originalHeight = window.visualViewport.height;
+                        }, 100);
+                    });
                 }
+                window.addEventListener('resize', handleWindowResize);
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => {
+                        originalHeight = window.innerHeight;
+                        if (isKeyboardVisible) {
+                            resetKeyboardOffset();
+                            isKeyboardVisible = false;
+                        }
+                    }, 100);
+                });
             }
             
             initKeyboardFix();
