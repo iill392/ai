@@ -579,6 +579,14 @@
             cursor: not-allowed;
             box-shadow: none;
         }
+        .btn-send.stop {
+            background: var(--danger);
+            box-shadow: 0 4px 16px rgba(231, 76, 60, 0.3);
+        }
+        .btn-send.stop:active {
+            background: #c0392b;
+            transform: scale(0.9);
+        }
 
         .sidebar-overlay {
             position: fixed;
@@ -968,6 +976,7 @@
             let messages = [];
             let isGenerating = false;
             let currentConversationId = null;
+            let abortController = null;
 
             const STORAGE_KEY = 'ai_chat_conversations';
 
@@ -1189,7 +1198,10 @@
 
                 hideWelcome();
                 isGenerating = true;
-                btnSend.disabled = true;
+                abortController = new AbortController();
+                btnSend.textContent = '✕';
+                btnSend.classList.add('stop');
+                btnSend.disabled = false;
 
                 const model = modelSelect.value;
                 const config = modelConfigs[model];
@@ -1271,6 +1283,7 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
+                        signal: abortController.signal,
                     });
 
                     if (!response.ok) throw new Error('HTTP 错误 ' + response.status);
@@ -1329,6 +1342,9 @@
                     showToast('请求失败: ' + err.message, true);
                 } finally {
                     isGenerating = false;
+                    abortController = null;
+                    btnSend.textContent = '➤';
+                    btnSend.classList.remove('stop');
                     btnSend.disabled = false;
                     scrollToBottom();
                     updateScrollBtn();
@@ -1344,8 +1360,24 @@
             }
 
             btnSend.addEventListener('click', () => {
-                if (chatInput.value.trim()) sendMessage(chatInput.value, []);
+                if (btnSend.classList.contains('stop')) {
+                    stopGeneration();
+                } else if (chatInput.value.trim()) {
+                    sendMessage(chatInput.value, []);
+                }
             });
+
+            function stopGeneration() {
+                if (abortController) {
+                    abortController.abort();
+                    abortController = null;
+                }
+                isGenerating = false;
+                btnSend.textContent = '➤';
+                btnSend.classList.remove('stop');
+                btnSend.disabled = false;
+                showToast('已停止生成');
+            }
 
             btnPlus.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1474,11 +1506,12 @@
                 const viewportHeight = getViewportHeight();
                 const inputRect = inputArea.getBoundingClientRect();
 
-                const targetBottom = viewportHeight - 10;
+                const targetBottom = viewportHeight - 150;
                 const offset = inputRect.bottom - targetBottom;
 
                 if (offset > 0) {
-                    appContainer.style.transform = `translateY(-${offset}px)`;
+                    const extraOffset = 80;
+                    appContainer.style.transform = `translateY(-${offset + extraOffset}px)`;
                     appContainer.style.transition = 'transform 0.25s ease-out';
                     document.body.classList.add('keyboard-visible');
                 }
