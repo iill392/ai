@@ -834,6 +834,7 @@
                 <option value="openai/gpt-oss-120b">GPT OSS 120B</option>
                 <option value="google/gemma-3n-e4b-it">Google Gemma 3N E4B</option>
                 <option value="bytedance/seed-oss-36b-instruct">ByteDance Seed OSS 36B</option>
+                <option value="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning">Nemotron 3 Nano Omni 🎤📷🎬</option>
             </select>
             <label class="toggle-label">
                 <span>🧠 深度思考</span>
@@ -865,9 +866,11 @@
         <div class="plus-menu" id="plusMenu">
             <button class="plus-menu-item" id="btnCamera">📷 拍照</button>
             <button class="plus-menu-item" id="btnAlbum">🖼️ 从相册选择</button>
+            <button class="plus-menu-item" id="btnVideo" style="display:none;">🎬 从相册选择视频</button>
         </div>
         <input type="file" id="fileInput" accept="image/*" style="display:none;">
         <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="videoInput" accept="video/*" style="display:none;">
 
         <div class="toast" id="toast"></div>
     </div>
@@ -885,6 +888,7 @@
             const sidebar = document.getElementById('sidebar');
             const fileInput = document.getElementById('fileInput');
             const cameraInput = document.getElementById('cameraInput');
+            const videoInput = document.getElementById('videoInput');
             const btnPlus = document.getElementById('btnPlus');
             const plusMenu = document.getElementById('plusMenu');
             const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -970,6 +974,18 @@
                     supportsThinking: true,
                     defaultThinking: false,
                     chat_template_kwargs: { thinking_budget: -1 }
+                },
+                'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': {
+                    temperature: 0.6,
+                    top_p: 0.95,
+                    max_tokens: 65536,
+                    reasoning_budget: 16384,
+                    supportsThinking: true,
+                    defaultThinking: false,
+                    supportsVision: true,
+                    supportsVideo: true,
+                    chat_template_kwargs: { enable_thinking: true },
+                    apiUrl: 'https://integrate.api.nvidia.com/v1/chat/completions'
                 }
             };
 
@@ -1108,6 +1124,12 @@
                     btnPlus.style.display = 'none';
                     plusMenu.classList.remove('show');
                 }
+
+                if (config.supportsVideo) {
+                    document.getElementById('btnVideo').style.display = 'flex';
+                } else {
+                    document.getElementById('btnVideo').style.display = 'none';
+                }
             }
             modelSelect.addEventListener('change', updateThinkingToggle);
             thinkingToggle.addEventListener('click', () => {
@@ -1146,7 +1168,7 @@
                 chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
             }
 
-            function createMsgEl(role, content = '', images = []) {
+            function createMsgEl(role, content = '', images = [], video = null) {
                 const div = document.createElement('div');
                 div.className = 'message ' + role;
 
@@ -1160,11 +1182,21 @@
 
                 const bubble = document.createElement('div');
                 bubble.className = 'msg-bubble';
-                if (role === 'assistant' && !content && images.length === 0) {
+                if (role === 'assistant' && !content && images.length === 0 && !video) {
                     bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
                 } else {
                     if (content) {
                         bubble.innerHTML = marked.parse(content) || content;
+                    }
+                    if (video) {
+                        const videoEl = document.createElement('video');
+                        videoEl.className = 'msg-video';
+                        videoEl.src = video;
+                        videoEl.controls = true;
+                        videoEl.style.marginTop = '8px';
+                        videoEl.style.maxWidth = '100%';
+                        videoEl.style.borderRadius = '10px';
+                        bubble.appendChild(videoEl);
                     }
                     if (images.length > 0) {
                         const imagesDiv = document.createElement('div');
@@ -1193,8 +1225,8 @@
 
             function showWelcome() { if (welcomeWrap) welcomeWrap.style.display = ''; }
 
-            async function sendMessage(userContent, images = []) {
-                if (isGenerating || (!userContent.trim() && images.length === 0)) return;
+            async function sendMessage(userContent, images = [], video = null) {
+                if (isGenerating || (!userContent.trim() && images.length === 0 && !video)) return;
 
                 hideWelcome();
                 isGenerating = true;
@@ -1208,32 +1240,36 @@
 
                 let userMsgContent = userContent.trim();
                 const msgImages = [...images];
-
+                const contentParts = [];
+                
+                if (userMsgContent) {
+                    contentParts.push({ type: 'text', text: userMsgContent });
+                }
+                
                 if (images.length > 0) {
-                    const imageContents = images.map(img => ({
-                        type: 'image_url',
-                        image_url: { url: img }
-                    }));
-                    if (userMsgContent) {
-                        userMsgContent = {
-                            role: 'user',
-                            content: [
-                                { type: 'text', text: userMsgContent },
-                                ...imageContents
-                            ]
-                        };
-                    } else {
-                        userMsgContent = {
-                            role: 'user',
-                            content: imageContents
-                        };
-                    }
-                    messages.push({ role: 'user', content: JSON.stringify(userMsgContent), images: images });
+                    images.forEach(img => {
+                        contentParts.push({ type: 'image_url', image_url: { url: img } });
+                    });
+                }
+                
+                if (video) {
+                    contentParts.push({ type: 'video_url', video_url: { url: video } });
+                }
+
+                let msgData;
+                if (contentParts.length > 1 || video) {
+                    msgData = { role: 'user', content: contentParts };
+                    messages.push({ 
+                        role: 'user', 
+                        content: JSON.stringify(msgData), 
+                        images: images,
+                        video: video
+                    });
                 } else {
                     messages.push({ role: 'user', content: userMsgContent });
                 }
 
-                chatContainer.appendChild(createMsgEl('user', userContent.trim(), images));
+                chatContainer.appendChild(createMsgEl('user', userContent.trim(), images, video));
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
                 scrollToBottom();
@@ -1397,6 +1433,12 @@
                 fileInput.click();
             });
 
+            document.getElementById('btnVideo').addEventListener('click', () => {
+                plusMenu.classList.remove('show');
+                btnPlus.classList.remove('active');
+                videoInput.click();
+            });
+
             document.addEventListener('click', (e) => {
                 if (!btnPlus.contains(e.target) && !plusMenu.contains(e.target)) {
                     plusMenu.classList.remove('show');
@@ -1426,6 +1468,15 @@
             cameraInput.addEventListener('change', async (e) => {
                 await handleImageFiles(e.target.files);
                 cameraInput.value = '';
+            });
+
+            videoInput.addEventListener('change', async (e) => {
+                if (!e.target.files || e.target.files.length === 0) return;
+                
+                const file = e.target.files[0];
+                const base64 = await fileToBase64(file);
+                sendMessage('', [], null, base64);
+                videoInput.value = '';
             });
 
             async function fileToBase64(file) {
@@ -1506,11 +1557,11 @@
                 const viewportHeight = getViewportHeight();
                 const inputRect = inputArea.getBoundingClientRect();
 
-                const targetBottom = viewportHeight - 150;
+                const targetBottom = viewportHeight - 200;
                 const offset = inputRect.bottom - targetBottom;
 
                 if (offset > 0) {
-                    const extraOffset = 80;
+                    const extraOffset = 120;
                     appContainer.style.transform = `translateY(-${offset + extraOffset}px)`;
                     appContainer.style.transition = 'transform 0.25s ease-out';
                     document.body.classList.add('keyboard-visible');
