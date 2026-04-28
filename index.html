@@ -690,20 +690,15 @@
             transform: translateX(-50%) translateY(-120px);
             background: var(--surface-3);
             color: var(--text);
-            padding: 12px 20px;
+            padding: 10px 18px;
             border-radius: 20px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             z-index: 100;
-            pointer-events: auto;
+            pointer-events: none;
             transition: transform 0.3s;
             box-shadow: var(--shadow-lg);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            width: 33.333%;
-            max-width: 400px;
-            min-width: 200px;
-            text-align: center;
-            cursor: pointer;
         }
         .toast.show {
             transform: translateX(-50%) translateY(0);
@@ -1115,37 +1110,13 @@
             updateThinkingToggle();
 
             let toastTimer;
-            let isToastHovered = false;
 
             function showToast(msg, isError = false) {
                 clearTimeout(toastTimer);
                 toast.textContent = msg;
                 toast.className = 'toast ' + (isError ? 'error' : '');
                 toast.classList.add('show');
-                isToastHovered = false;
-                
-                const hideToast = () => {
-                    if (!isToastHovered) {
-                        toast.classList.remove('show');
-                    }
-                };
-                
-                toastTimer = setTimeout(hideToast, 3000);
-                
-                toast.onmouseenter = () => {
-                    isToastHovered = true;
-                    clearTimeout(toastTimer);
-                };
-                
-                toast.onmouseleave = () => {
-                    isToastHovered = false;
-                    toastTimer = setTimeout(hideToast, 2000);
-                };
-                
-                toast.onclick = () => {
-                    clearTimeout(toastTimer);
-                    toast.classList.remove('show');
-                };
+                toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
             }
 
             function isNearBottom(th = 60) {
@@ -1460,29 +1431,36 @@
             let initialViewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
             let currentKeyboardHeight = 0;
             let keyboardAdjustTimeout = null;
-            const KEYBOARD_THRESHOLD = 80; // 高度差超过80px认为是键盘弹出
+            let lastCheckTime = 0;
+            const KEYBOARD_THRESHOLD = 80;
+            const CHECK_DEBOUNCE = 100;
+
+            function isMobileApp() {
+                return /WebView|Android.*AppleWebKit|Cordova|Capacitor/.test(navigator.userAgent);
+            }
+
+            function getViewportHeight() {
+                return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            }
 
             function handleViewportChange() {
+                const now = Date.now();
+                if (now - lastCheckTime < CHECK_DEBOUNCE) return;
+                lastCheckTime = now;
+
                 clearTimeout(keyboardAdjustTimeout);
                 keyboardAdjustTimeout = setTimeout(() => {
-                    const viewport = window.visualViewport;
-                    if (!viewport) return;
-
-                    const viewportHeight = viewport.height;
+                    const viewportHeight = getViewportHeight();
                     const heightDiff = initialViewportHeight - viewportHeight;
 
                     if (heightDiff > KEYBOARD_THRESHOLD) {
-                        // 键盘弹出
                         currentKeyboardHeight = heightDiff;
                         adjustForKeyboard();
-                        // 键盘弹出时滚动聊天到底部
                         scrollToBottom(false);
                     } else if (heightDiff < 30 && currentKeyboardHeight > 0) {
-                        // 键盘收起
                         currentKeyboardHeight = 0;
                         resetKeyboardOffset();
                     } else if (heightDiff <= 0 && Math.abs(heightDiff) < 30) {
-                        // 视口变大（如地址栏隐藏），更新基准高度
                         initialViewportHeight = viewportHeight;
                     }
                 }, 60);
@@ -1493,17 +1471,16 @@
                 const inputArea = document.querySelector('.input-area');
                 if (!appContainer || !inputArea) return;
 
-                const viewport = window.visualViewport;
-                const viewportHeight = viewport.height;
+                const viewportHeight = getViewportHeight();
                 const inputRect = inputArea.getBoundingClientRect();
 
-                // 输入框底部应该距离可视区域底部至少10px
                 const targetBottom = viewportHeight - 10;
                 const offset = inputRect.bottom - targetBottom;
 
                 if (offset > 0) {
                     appContainer.style.transform = `translateY(-${offset}px)`;
                     appContainer.style.transition = 'transform 0.25s ease-out';
+                    document.body.classList.add('keyboard-visible');
                 }
             }
 
@@ -1513,33 +1490,66 @@
                     appContainer.style.transform = '';
                     appContainer.style.transition = 'transform 0.25s ease-out';
                 }
+                document.body.classList.remove('keyboard-visible');
+            }
+
+            function scrollInputIntoView() {
+                clearTimeout(keyboardAdjustTimeout);
+                keyboardAdjustTimeout = setTimeout(() => {
+                    const viewportHeight = getViewportHeight();
+                    const heightDiff = initialViewportHeight - viewportHeight;
+                    
+                    if (heightDiff > KEYBOARD_THRESHOLD || isMobileApp()) {
+                        adjustForKeyboard();
+                        scrollToBottom(false);
+                    }
+                }, 100);
             }
 
             function initKeyboardFix() {
-                initialViewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                initialViewportHeight = getViewportHeight();
 
                 if (typeof window.visualViewport !== 'undefined') {
                     window.visualViewport.addEventListener('resize', handleViewportChange);
                     window.visualViewport.addEventListener('scroll', handleViewportChange);
                 }
 
-                // 备用：监听window resize（部分安卓浏览器visualViewport支持不完善）
-                window.addEventListener('resize', () => {
-                    if (typeof window.visualViewport === 'undefined') {
-                        handleViewportChange();
-                    }
-                });
+                window.addEventListener('resize', handleViewportChange);
 
-                // 屏幕旋转时更新基准高度
                 window.addEventListener('orientationchange', () => {
                     setTimeout(() => {
                         if (currentKeyboardHeight === 0) {
-                            initialViewportHeight = window.visualViewport ?
-                                window.visualViewport.height : window.innerHeight;
+                            initialViewportHeight = getViewportHeight();
                         }
                         handleViewportChange();
                     }, 300);
                 });
+
+                if (chatInput) {
+                    chatInput.addEventListener('focus', scrollInputIntoView);
+                    
+                    chatInput.addEventListener('blur', () => {
+                        clearTimeout(keyboardAdjustTimeout);
+                        keyboardAdjustTimeout = setTimeout(() => {
+                            if (!chatInput.matches(':focus')) {
+                                resetKeyboardOffset();
+                            }
+                        }, 200);
+                    });
+                }
+
+                if (isMobileApp()) {
+                    document.addEventListener('native.keyboardshow', (e) => {
+                        currentKeyboardHeight = e.keyboardHeight || 150;
+                        adjustForKeyboard();
+                        scrollToBottom(false);
+                    });
+                    
+                    document.addEventListener('native.keyboardhide', () => {
+                        currentKeyboardHeight = 0;
+                        resetKeyboardOffset();
+                    });
+                }
             }
 
             initKeyboardFix();
