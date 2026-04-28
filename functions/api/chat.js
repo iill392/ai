@@ -11,23 +11,33 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.text();
 
+    const headers = new Headers({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+    });
+
+    const acceptHeader = request.headers.get('Accept');
+    if (acceptHeader) {
+      headers.set('Accept', acceptHeader);
+    }
+
     const nvidiaResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${NVIDIA_API_KEY}`,
-      },
+      headers,
       body,
     });
 
+    const responseHeaders = new Headers();
+    nvidiaResponse.headers.forEach((value, key) => {
+      responseHeaders.set(key, value);
+    });
+    responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set('Cache-Control', 'no-cache');
+    responseHeaders.set('Connection', 'keep-alive');
+
     return new Response(nvidiaResponse.body, {
       status: nvidiaResponse.status,
-      headers: {
-        'Content-Type': nvidiaResponse.headers.get('content-type') || 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: responseHeaders,
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: '服务器请求超时，请稍后重试' }), {
