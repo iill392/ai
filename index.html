@@ -690,15 +690,20 @@
             transform: translateX(-50%) translateY(-120px);
             background: var(--surface-3);
             color: var(--text);
-            padding: 10px 18px;
+            padding: 12px 20px;
             border-radius: 20px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 500;
             z-index: 100;
-            pointer-events: none;
+            pointer-events: auto;
             transition: transform 0.3s;
             box-shadow: var(--shadow-lg);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 33.333%;
+            max-width: 400px;
+            min-width: 200px;
+            text-align: center;
+            cursor: pointer;
         }
         .toast.show {
             transform: translateX(-50%) translateY(0);
@@ -1110,13 +1115,37 @@
             updateThinkingToggle();
 
             let toastTimer;
+            let isToastHovered = false;
 
             function showToast(msg, isError = false) {
                 clearTimeout(toastTimer);
                 toast.textContent = msg;
                 toast.className = 'toast ' + (isError ? 'error' : '');
                 toast.classList.add('show');
-                toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+                isToastHovered = false;
+                
+                const hideToast = () => {
+                    if (!isToastHovered) {
+                        toast.classList.remove('show');
+                    }
+                };
+                
+                toastTimer = setTimeout(hideToast, 3000);
+                
+                toast.onmouseenter = () => {
+                    isToastHovered = true;
+                    clearTimeout(toastTimer);
+                };
+                
+                toast.onmouseleave = () => {
+                    isToastHovered = false;
+                    toastTimer = setTimeout(hideToast, 2000);
+                };
+                
+                toast.onclick = () => {
+                    clearTimeout(toastTimer);
+                    toast.classList.remove('show');
+                };
             }
 
             function isNearBottom(th = 60) {
