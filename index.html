@@ -1103,13 +1103,14 @@
                 currentConversationId = conv.id;
                 modelSelect.value = conv.model || 'qwen/qwen3-next-80b-a3b-thinking';
                 updateThinkingToggle();
+                const config = modelConfigs[modelSelect.value];
                 chatContainer.querySelectorAll('.message').forEach(el => el.remove());
                 if (messages.length === 0) {
                     showWelcome();
                 } else {
                     hideWelcome();
                     messages.forEach(msg => {
-                        const el = createMsgEl(msg.role, msg.content, msg.images || []);
+                        const el = createMsgEl(msg.role, msg.content, msg.images || [], msg.video || null, config.supportsThinking);
                         chatContainer.appendChild(el);
                     });
                     scrollToBottom(false);
@@ -1198,11 +1199,11 @@
                 chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
             }
 
-            function createMsgEl(role, content = '', images = [], video = null) {
+            function createMsgEl(role, content = '', images = [], video = null, showReasoning = false) {
                 const div = document.createElement('div');
                 div.className = 'message ' + role;
 
-                if (role === 'assistant') {
+                if (role === 'assistant' && showReasoning) {
                     const reasoningBox = document.createElement('div');
                     reasoningBox.className = 'reasoning-box';
                     reasoningBox.innerHTML = '<div class="header">🧠 推理过程</div><div class="content"></div>';
@@ -1306,7 +1307,8 @@
                 chatInput.style.height = 'auto';
                 scrollToBottom();
 
-                const assistantEl = createMsgEl('assistant', '');
+                const showReasoning = config.supportsThinking && thinkingToggle.classList.contains('active');
+                const assistantEl = createMsgEl('assistant', '', [], null, showReasoning);
                 chatContainer.appendChild(assistantEl);
                 scrollToBottom();
 
@@ -1402,6 +1404,10 @@
                         bubble.innerHTML = '<p>（无回复内容）</p>';
                     } else {
                         messages.push({ role: 'assistant', content: '[推理回复] ' + reasoningText });
+                    }
+
+                    if (reasoningBox && !reasoningText) {
+                        reasoningBox.style.display = 'none';
                     }
 
                 } catch (err) {
