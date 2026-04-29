@@ -973,7 +973,8 @@
                     frequency_penalty: 0,
                     presence_penalty: 0,
                     supportsThinking: true,
-                    defaultThinking: false
+                    defaultThinking: true,
+                    alwaysThinking: true
                 },
                 'openai/gpt-oss-120b': {
                     temperature: 1,
@@ -982,7 +983,8 @@
                     frequency_penalty: 0,
                     presence_penalty: 0,
                     supportsThinking: true,
-                    defaultThinking: false,
+                    defaultThinking: true,
+                    alwaysThinking: true,
                     chat_template_kwargs: { reasoning_effort: 'medium' }
                 },
                 'google/gemma-3n-e4b-it': {
@@ -1110,8 +1112,19 @@
                 } else {
                     hideWelcome();
                     messages.forEach(msg => {
-                        const el = createMsgEl(msg.role, msg.content, msg.images || [], msg.video || null, config.supportsThinking);
+                        const hasReasoning = msg.reasoning && msg.reasoning.trim().length > 0;
+                        const el = createMsgEl(msg.role, msg.content, msg.images || [], msg.video || null, hasReasoning);
                         chatContainer.appendChild(el);
+                        
+                        if (hasReasoning) {
+                            const reasoningBox = el.querySelector('.reasoning-box');
+                            if (reasoningBox) {
+                                const reasoningContent = reasoningBox.querySelector('.content');
+                                if (reasoningContent) {
+                                    reasoningContent.textContent = msg.reasoning;
+                                }
+                            }
+                        }
                     });
                     scrollToBottom(false);
                 }
@@ -1139,9 +1152,19 @@
                 const model = modelSelect.value;
                 const config = modelConfigs[model];
                 if (config.supportsThinking) {
-                    thinkingToggle.classList.remove('disabled');
-                    thinkingToggle.style.pointerEvents = 'auto';
-                    thinkingToggle.style.opacity = '1';
+                    if (config.alwaysThinking) {
+                        thinkingToggle.classList.add('disabled');
+                        thinkingToggle.style.pointerEvents = 'none';
+                        thinkingToggle.style.opacity = '0.6';
+                        thinkingToggle.classList.add('active');
+                    } else {
+                        thinkingToggle.classList.remove('disabled');
+                        thinkingToggle.style.pointerEvents = 'auto';
+                        thinkingToggle.style.opacity = '1';
+                        if (config.defaultThinking && !thinkingToggle.classList.contains('active')) {
+                            thinkingToggle.classList.add('active');
+                        }
+                    }
                 } else {
                     thinkingToggle.classList.add('disabled');
                     thinkingToggle.style.pointerEvents = 'none';
@@ -1314,6 +1337,10 @@
 
                 const reasoningBox = assistantEl.querySelector('.reasoning-box');
                 const reasoningContent = reasoningBox ? reasoningBox.querySelector('.content') : null;
+                let hasReasoning = false;
+                if (reasoningBox) {
+                    reasoningBox.style.display = 'none';
+                }
                 const bubble = assistantEl.querySelector('.msg-bubble');
 
                 let fullContent = '';
@@ -1382,6 +1409,10 @@
                                 if (delta?.reasoning_content && reasoningContent) {
                                     reasoningText += delta.reasoning_content;
                                     reasoningContent.textContent = reasoningText;
+                                    if (!hasReasoning && reasoningBox) {
+                                        reasoningBox.style.display = 'block';
+                                        hasReasoning = true;
+                                    }
                                     if (!fullContent) {
                                         bubble.innerHTML =
                                             '<div class="typing-container"><span>正在思考中</span><div class="typing-dots"><span></span><span></span><span></span></div></div>';
@@ -1399,15 +1430,12 @@
                     }
 
                     if (fullContent) {
-                        messages.push({ role: 'assistant', content: fullContent });
+                        messages.push({ role: 'assistant', content: fullContent, reasoning: reasoningText || null });
                     } else if (!reasoningText) {
                         bubble.innerHTML = '<p>（无回复内容）</p>';
+                        messages.push({ role: 'assistant', content: '' });
                     } else {
-                        messages.push({ role: 'assistant', content: '[推理回复] ' + reasoningText });
-                    }
-
-                    if (reasoningBox && !reasoningText) {
-                        reasoningBox.style.display = 'none';
+                        messages.push({ role: 'assistant', content: '[推理回复] ' + reasoningText, reasoning: reasoningText });
                     }
 
                 } catch (err) {
