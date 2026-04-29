@@ -437,6 +437,14 @@
             font-size: 13px;
             color: var(--text-secondary);
             white-space: pre-wrap;
+            display: block;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .reasoning-box.collapsed {
+            padding: 8px 14px;
+        }
+        .reasoning-box.collapsed .content {
             display: none;
         }
         .reasoning-box .header {
@@ -446,6 +454,18 @@
             margin-bottom: 6px;
             letter-spacing: 0.5px;
             text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .reasoning-box .header::after {
+            content: '▼';
+            font-size: 10px;
+            color: var(--text-tertiary);
+            transition: transform 0.2s ease;
+        }
+        .reasoning-box.collapsed .header::after {
+            transform: rotate(-90deg);
         }
 
         .typing-dots {
@@ -1176,7 +1196,9 @@
                     const reasoningBox = document.createElement('div');
                     reasoningBox.className = 'reasoning-box';
                     reasoningBox.innerHTML = '<div class="header">🧠 推理过程</div><div class="content"></div>';
-                    reasoningBox.style.display = 'none';
+                    reasoningBox.addEventListener('click', () => {
+                        reasoningBox.classList.toggle('collapsed');
+                    });
                     div.appendChild(reasoningBox);
                 }
 
@@ -1348,7 +1370,6 @@
                                 if (delta?.reasoning_content && reasoningContent) {
                                     reasoningText += delta.reasoning_content;
                                     reasoningContent.textContent = reasoningText;
-                                    reasoningBox.style.display = 'block';
                                     if (!fullContent) {
                                         bubble.innerHTML =
                                             '<div class="typing-dots"><span></span><span></span><span></span></div>';
