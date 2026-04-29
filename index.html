@@ -487,6 +487,16 @@
         .typing-dots span:nth-child(3) {
             animation-delay: 0.4s;
         }
+        .typing-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .typing-container .typing-dots {
+            padding: 0;
+        }
 
         .scroll-bottom-btn {
             position: absolute;
@@ -1205,7 +1215,7 @@
                 const bubble = document.createElement('div');
                 bubble.className = 'msg-bubble';
                 if (role === 'assistant' && !content && images.length === 0 && !video) {
-                    bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+                    bubble.innerHTML = '<div class="typing-container"><span>正在思考中</span><div class="typing-dots"><span></span><span></span><span></span></div></div>';
                 } else {
                     if (content) {
                         bubble.innerHTML = marked.parse(content) || content;
@@ -1372,7 +1382,7 @@
                                     reasoningContent.textContent = reasoningText;
                                     if (!fullContent) {
                                         bubble.innerHTML =
-                                            '<div class="typing-dots"><span></span><span></span><span></span></div>';
+                                            '<div class="typing-container"><span>正在思考中</span><div class="typing-dots"><span></span><span></span><span></span></div></div>';
                                     }
                                     scrollToBottom(false);
                                 }
