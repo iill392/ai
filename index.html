@@ -755,6 +755,82 @@
             color: #f8716d;
         }
 
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 340px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            transform: scale(0.95) translateY(20px);
+            transition: transform 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .modal-overlay.show .modal {
+            transform: scale(1) translateY(0);
+        }
+        .modal-header {
+            padding: 20px 20px 12px;
+            text-align: center;
+        }
+        .modal-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .modal-body {
+            padding: 16px 20px 20px;
+        }
+        .modal-content {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            text-align: center;
+        }
+        .modal-footer {
+            padding: 12px 16px;
+            display: flex;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            touch-action: manipulation;
+            background: var(--accent);
+            color: #fff;
+        }
+        .modal-btn:active {
+            background: var(--accent-light);
+            transform: scale(0.98);
+        }
+
         @keyframes fadeInUp {
             from {
                 opacity: 0;
@@ -917,6 +993,24 @@
         <input type="file" id="videoInput" accept="video/*" style="display:none;">
 
         <div class="toast" id="toast"></div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-icon">⚠️</div>
+                <div class="modal-title">AI生成内容声明</div>
+            </div>
+            <div class="modal-body">
+                <div class="modal-content">
+                    本页面所有内容均由AI生成，仅供参考。<br><br>
+                    AI生成内容可能存在不准确或错误，请谨慎使用，不构成任何投资或决策建议。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn" id="modalBtn">我知道了</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1636,6 +1730,22 @@
 
             renderSidebarList();
 
+            function checkFirstVisit() {
+                const hasVisited = localStorage.getItem('ai_page_visited');
+                if (!hasVisited) {
+                    setTimeout(() => {
+                        document.getElementById('modalOverlay').classList.add('show');
+                    }, 500);
+                }
+            }
+
+            document.getElementById('modalBtn').addEventListener('click', () => {
+                document.getElementById('modalOverlay').classList.remove('show');
+                localStorage.setItem('ai_page_visited', 'true');
+            });
+
+            checkFirstVisit();
+
             // ============ 安卓键盘适配：输入框跟随键盘移动 ============
             let initialViewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
             let currentKeyboardHeight = 0;
@@ -1676,22 +1786,6 @@
             }
 
             function adjustForKeyboard() {
-                const appContainer = document.querySelector('.app-container');
-                const inputArea = document.querySelector('.input-area');
-                if (!appContainer || !inputArea) return;
-
-                const viewportHeight = getViewportHeight();
-                const inputRect = inputArea.getBoundingClientRect();
-
-                const targetBottom = viewportHeight - 200;
-                const offset = inputRect.bottom - targetBottom;
-
-                if (offset > 0) {
-                    const extraOffset = 120;
-                    appContainer.style.transform = `translateY(-${offset + extraOffset}px)`;
-                    appContainer.style.transition = 'transform 0.25s ease-out';
-                    document.body.classList.add('keyboard-visible');
-                }
             }
 
             function resetKeyboardOffset() {
@@ -1704,16 +1798,6 @@
             }
 
             function scrollInputIntoView() {
-                clearTimeout(keyboardAdjustTimeout);
-                keyboardAdjustTimeout = setTimeout(() => {
-                    const viewportHeight = getViewportHeight();
-                    const heightDiff = initialViewportHeight - viewportHeight;
-                    
-                    if (heightDiff > KEYBOARD_THRESHOLD || isMobileApp()) {
-                        adjustForKeyboard();
-                        scrollToBottom(false);
-                    }
-                }, 100);
             }
 
             function initKeyboardFix() {

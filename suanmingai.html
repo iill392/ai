@@ -1105,6 +1105,23 @@
         <div class="toast" id="toast"></div>
     </div>
 
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">AI生成内容声明</div>
+            </div>
+            <div class="modal-body">
+                <div class="modal-content">
+                    本页面所有内容均由AI生成，仅供娱乐。<br><br>
+                    算命内容纯属娱乐，请勿当真。命运掌握在自己手中，努力和善良才是人生的真谛。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn confirm" id="modalBtn">我知道了</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         (function() {
             const chatContainer = document.getElementById('chatContainer');
@@ -1769,6 +1786,22 @@
 
             renderSidebarList();
 
+            function checkFirstVisit() {
+                const hasVisited = localStorage.getItem('suanming_page_visited');
+                if (!hasVisited) {
+                    setTimeout(() => {
+                        document.getElementById('modalOverlay').classList.add('show');
+                    }, 500);
+                }
+            }
+
+            document.getElementById('modalBtn').addEventListener('click', () => {
+                document.getElementById('modalOverlay').classList.remove('show');
+                localStorage.setItem('suanming_page_visited', 'true');
+            });
+
+            checkFirstVisit();
+
             initAutoMessage();
 
             // ============ 安卓键盘适配：输入框跟随键盘移动 ============
@@ -1811,22 +1844,6 @@
             }
 
             function adjustForKeyboard() {
-                const appContainer = document.querySelector('.app-container');
-                const inputArea = document.querySelector('.input-area');
-                if (!appContainer || !inputArea) return;
-
-                const viewportHeight = getViewportHeight();
-                const inputRect = inputArea.getBoundingClientRect();
-
-                const targetBottom = viewportHeight - 200;
-                const offset = inputRect.bottom - targetBottom;
-
-                if (offset > 0) {
-                    const extraOffset = 120;
-                    appContainer.style.transform = `translateY(-${offset + extraOffset}px)`;
-                    appContainer.style.transition = 'transform 0.25s ease-out';
-                    document.body.classList.add('keyboard-visible');
-                }
             }
 
             function resetKeyboardOffset() {
@@ -1839,16 +1856,6 @@
             }
 
             function scrollInputIntoView() {
-                clearTimeout(keyboardAdjustTimeout);
-                keyboardAdjustTimeout = setTimeout(() => {
-                    const viewportHeight = getViewportHeight();
-                    const heightDiff = initialViewportHeight - viewportHeight;
-                    
-                    if (heightDiff > KEYBOARD_THRESHOLD || isMobileApp()) {
-                        adjustForKeyboard();
-                        scrollToBottom(false);
-                    }
-                }, 100);
             }
 
             function initKeyboardFix() {
