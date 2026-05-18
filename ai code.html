@@ -381,29 +381,23 @@
             border-bottom-left-radius: 6px;
             color: var(--text);
         }
-        .msg-bubble pre {
-            background: #0a0a12;
-            border-radius: var(--radius-sm);
-            padding: 8px 14px;
-            overflow-x: auto;
+        .code-block-wrap {
             margin: 8px 0;
-            font-family: var(--font-mono);
-            font-size: 13px;
-            line-height: 1.5;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.06);
-            -webkit-overflow-scrolling: touch;
-            position: relative;
+            background: #0a0a12;
         }
         .code-header {
             display: flex;
             justify-content: flex-end;
             gap: 6px;
-            margin-bottom: 8px;
-            padding-bottom: 6px;
+            padding: 8px 14px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            background: #111118;
         }
         .code-btn {
-            padding: 4px 10px;
+            padding: 6px 12px;
             border-radius: 6px;
             border: none;
             background: var(--surface-2);
@@ -414,6 +408,8 @@
             display: flex;
             align-items: center;
             gap: 4px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         .code-btn:hover {
             background: var(--surface-3);
@@ -429,9 +425,48 @@
             transform: scale(0.95);
         }
         .code-content {
+            margin: 0;
+            padding: 12px 14px;
+            background: #0a0a12;
             overflow-x: auto;
+            overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
             white-space: pre;
+            word-break: normal;
+            word-wrap: normal;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .code-content::-webkit-scrollbar {
+            height: 4px;
+        }
+        .code-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        .code-content code {
+            word-break: normal;
+            word-wrap: normal;
+            white-space: pre;
+            background: none;
+            padding: 0;
+            font-size: inherit;
+        }
+        .msg-bubble pre {
+            margin: 8px 0;
+            padding: 12px 14px;
+            background: #0a0a12;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            white-space: pre;
+            word-break: normal;
+            word-wrap: normal;
         }
         .msg-bubble code {
             font-family: var(--font-mono);
@@ -1593,7 +1628,7 @@
                 let html = marked.parse(content);
                 html = html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (match, attrs, codeContent) => {
                     const codeId = 'code-' + generateId();
-                    return `<pre><div class="code-header"><button class="code-btn copy" onclick="copyCode('${codeId}')">📋 复制</button><button class="code-btn run" onclick="runCode('${codeId}')">▶️ 运行</button></div><div id="${codeId}" class="code-content"><code${attrs}>${codeContent}</code></div></pre>`;
+                    return `<div class="code-block-wrap"><div class="code-header"><button class="code-btn copy" data-code-id="${codeId}" onclick="copyCode('${codeId}')">📋 复制</button><button class="code-btn run" data-code-id="${codeId}" onclick="runCode('${codeId}')">▶️ 运行</button></div><pre id="${codeId}" class="code-content"><code${attrs}>${codeContent}</code></pre></div>`;
                 });
                 return html;
             }
@@ -1609,6 +1644,7 @@
                     });
                 }
             }
+            window.copyCode = copyCode;
 
             function runCode(codeId) {
                 const codeElement = document.getElementById(codeId);
@@ -1620,6 +1656,7 @@
                     document.getElementById('codeRunOverlay').classList.add('show');
                 }
             }
+            window.runCode = runCode;
 
             const codeRunOverlay = document.getElementById('codeRunOverlay');
             const codeRunClose = document.getElementById('codeRunClose');
@@ -1641,6 +1678,23 @@
             codeRunClear.addEventListener('click', () => {
                 codeRunOutput.textContent = '点击下方按钮运行代码...';
                 codeRunOutput.classList.remove('error');
+            });
+
+            window.generateId = generateId;
+            window.showToast = showToast;
+
+            chatContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                const codeId = target.dataset.codeId;
+                if (codeId) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (target.classList.contains('copy')) {
+                        copyCode(codeId);
+                    } else if (target.classList.contains('run')) {
+                        runCode(codeId);
+                    }
+                }
             });
 
             codeRunBtn.addEventListener('click', async () => {
@@ -1856,29 +1910,60 @@
                 if (config.seed !== undefined) payload.seed = config.seed;
 
                 try {
-                    const response = await fetch('/api/chat', {
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => {
+                            abortController.abort();
+                            reject(new Error('请求超时'));
+                        }, 300000);
+                    });
+
+                    const fetchPromise = fetch('/api/chat', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'text/event-stream'
+                        },
                         body: JSON.stringify(payload),
                         signal: abortController.signal,
                     });
 
-                    if (!response.ok) throw new Error('HTTP 错误 ' + response.status);
+                    const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ error: '服务器错误' }));
+                        throw new Error(errorData.error || 'HTTP 错误 ' + response.status);
+                    }
 
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
                     let buffer = '';
+                    let lastActivityTime = Date.now();
 
                     while (true) {
-                        const { done, value } = await reader.read();
+                        const readPromise = reader.read();
+                        const timeoutPromise = new Promise((_, reject) => {
+                            setTimeout(() => {
+                                if (Date.now() - lastActivityTime > 60000) {
+                                    abortController.abort();
+                                    reject(new Error('连接超时'));
+                                }
+                            }, 65000);
+                        });
+
+                        const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+
                         if (done) break;
 
+                        lastActivityTime = Date.now();
                         buffer += decoder.decode(value, { stream: true });
                         const lines = buffer.split('\n');
                         buffer = lines.pop() || '';
 
                         for (const line of lines) {
-                            if (!line.trim() || !line.startsWith('data: ')) continue;
+                            if (!line.trim()) continue;
+                            if (!line.startsWith('data: ')) {
+                                continue;
+                            }
                             const jsonStr = line.slice(6).trim();
                             if (jsonStr === '[DONE]') continue;
 
@@ -1919,8 +2004,21 @@
                     }
 
                 } catch (err) {
-                    bubble.innerHTML = `<p>❌ 请求失败：${err.message}</p>`;
-                    showToast('请求失败: ' + err.message, true);
+                    let errorMsg = err.message;
+                    let displayMsg = '❌ 请求失败';
+                    
+                    if (err.message.includes('超时')) {
+                        errorMsg = '请求超时，请缩短问题或稍后重试';
+                        displayMsg = '⏱️ 请求超时';
+                    } else if (err.message.includes('abort')) {
+                        errorMsg = '请求已中止';
+                        displayMsg = '⏹️ 请求已中止';
+                    } else if (err.message.includes('HTTP')) {
+                        displayMsg = '❌ 服务器错误';
+                    }
+                    
+                    bubble.innerHTML = `<p>${displayMsg}</p>`;
+                    showToast(errorMsg, true);
                 } finally {
                     isGenerating = false;
                     abortController = null;
