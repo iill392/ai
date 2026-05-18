@@ -384,9 +384,22 @@
         .code-block-wrap {
             margin: 8px 0;
             border-radius: var(--radius-sm);
-            overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.06);
             background: #0a0a12;
+            overflow: hidden;
+        }
+        .code-scroll-wrapper {
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+        }
+        .code-scroll-wrapper::-webkit-scrollbar {
+            height: 6px;
+        }
+        .code-scroll-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
         }
         .code-header {
             display: flex;
@@ -395,6 +408,9 @@
             padding: 8px 14px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
             background: #111118;
+            position: sticky;
+            top: 0;
+            z-index: 1;
         }
         .code-btn {
             padding: 6px 12px;
@@ -419,7 +435,12 @@
             color: #4ecdc4;
         }
         .code-btn.run {
-            color: #2ecc71;
+            color: #00d4ff;
+            background: rgba(0, 212, 255, 0.15);
+        }
+        .code-btn.run:hover {
+            background: rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
         }
         .code-btn:active {
             transform: scale(0.95);
@@ -428,15 +449,14 @@
             margin: 0;
             padding: 12px 14px;
             background: #0a0a12;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
             white-space: pre;
             word-break: normal;
             word-wrap: normal;
             font-family: var(--font-mono);
             font-size: 13px;
             line-height: 1.5;
+            display: block;
+            min-width: 100%;
         }
         .code-content::-webkit-scrollbar {
             height: 4px;
@@ -913,6 +933,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            min-height: 300px;
         }
         .code-run-code {
             padding: 12px;
@@ -926,6 +947,19 @@
             max-height: 200px;
             overflow-y: auto;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            min-height: 60px;
+            flex-shrink: 0;
+        }
+        .code-run-code:empty {
+            display: none;
+        }
+        #htmlPreviewFrame {
+            width: 100%;
+            flex: 1;
+            border: none;
+            border-radius: 8px;
+            background: #fff;
+            min-height: 300px;
         }
         .code-run-output {
             flex: 1;
@@ -1143,14 +1177,16 @@
         </div>
 
         <div class="controls">
-            <div style="display:flex;gap:8px;width:100%;align-items:center;">
+            <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
                 <label style="font-size:13px;color:var(--text-secondary);">模式：</label>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button id="modeProgramming" onclick="switchMode('programming')" style="background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;">⚡ 自动编程</button>
-                    <button id="modeSecurity" onclick="switchMode('security')" style="background:var(--surface-2);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);padding:8px 16px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;">🛡️ 安全导师</button>
+                <div style="display:flex;gap:6px;">
+                    <button id="modeProgramming" onclick="switchMode('programming')" style="background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;">⚡ 自动编程</button>
+                    <button id="modeSecurity" onclick="switchMode('security')" style="background:var(--surface-2);color:var(--text-secondary);border:1px solid rgba(255,255,255,0.1);padding:8px 16px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;">🛡️ 安全导师</button>
                 </div>
-                <label for="modelSelect" style="font-size:13px;color:var(--text-secondary);margin-left:auto;">模型：</label>
-                <select id="modelSelect">
+            </div>
+            <div style="flex:1;min-width:120px;margin-left:8px;">
+                <label for="modelSelect" style="font-size:13px;color:var(--text-secondary);">模型：</label>
+                <select id="modelSelect" style="width:100%;max-width:200px;">
                     <option value="qwen/qwen3-next-80b-a3b-thinking" selected>Qwen 3 Next 80B</option>
                     <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
                     <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
@@ -1628,7 +1664,11 @@
                 let html = marked.parse(content);
                 html = html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (match, attrs, codeContent) => {
                     const codeId = 'code-' + generateId();
-                    return `<div class="code-block-wrap"><div class="code-header"><button class="code-btn copy" data-code-id="${codeId}" onclick="copyCode('${codeId}')">📋 复制</button><button class="code-btn run" data-code-id="${codeId}" onclick="runCode('${codeId}')">▶️ 运行</button></div><pre id="${codeId}" class="code-content"><code${attrs}>${codeContent}</code></pre></div>`;
+                    const isHtml = /class="[^"]*language-html[^"]*"|class="[^"]*language-htm[^"]*"/.test(attrs);
+                    const runBtn = isHtml 
+                        ? `<button class="code-btn run" data-code-id="${codeId}" onclick="runCode('${codeId}')">▶️ 预览</button>`
+                        : '';
+                    return `<div class="code-block-wrap"><div class="code-header"><button class="code-btn copy" data-code-id="${codeId}" onclick="copyCode('${codeId}')">📋 复制</button>${runBtn}</div><div class="code-scroll-wrapper"><pre id="${codeId}" class="code-content" data-lang="${isHtml ? 'html' : 'other'}"><code${attrs}>${codeContent}</code></pre></div></div>`;
                 });
                 return html;
             }
@@ -1650,10 +1690,34 @@
                 const codeElement = document.getElementById(codeId);
                 if (codeElement) {
                     const codeText = codeElement.textContent || codeElement.innerText;
-                    document.getElementById('codeRunCode').textContent = codeText;
-                    document.getElementById('codeRunOutput').textContent = '点击下方按钮运行代码...';
-                    document.getElementById('codeRunOutput').classList.remove('error');
-                    document.getElementById('codeRunOverlay').classList.add('show');
+                    const lang = codeElement.dataset.lang || 'other';
+                    
+                    if (lang === 'html') {
+                        document.getElementById('codeRunCode').innerHTML = '';
+                        document.getElementById('codeRunCode').style.display = 'none';
+                        const previewFrame = document.getElementById('htmlPreviewFrame');
+                        if (previewFrame) {
+                            previewFrame.srcdoc = codeText;
+                        } else {
+                            const iframe = document.createElement('iframe');
+                            iframe.id = 'htmlPreviewFrame';
+                            iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:8px;background:#fff;';
+                            iframe.srcdoc = codeText;
+                            document.getElementById('codeRunCode').parentElement.insertBefore(iframe, document.getElementById('codeRunCode').nextSibling);
+                        }
+                        document.getElementById('codeRunOutput').textContent = '';
+                        document.getElementById('codeRunOutput').style.display = 'none';
+                        document.getElementById('codeRunBtn').textContent = '刷新预览';
+                        document.getElementById('codeRunOverlay').classList.add('show');
+                    } else {
+                        document.getElementById('codeRunCode').textContent = codeText;
+                        document.getElementById('codeRunCode').style.display = '';
+                        document.getElementById('codeRunOutput').style.display = '';
+                        document.getElementById('codeRunOutput').textContent = '该代码类型暂不支持运行';
+                        document.getElementById('codeRunOutput').classList.remove('error');
+                        document.getElementById('codeRunBtn').textContent = '运行代码';
+                        document.getElementById('codeRunOverlay').classList.add('show');
+                    }
                 }
             }
             window.runCode = runCode;
@@ -1676,8 +1740,17 @@
             });
 
             codeRunClear.addEventListener('click', () => {
+                const previewFrame = document.getElementById('htmlPreviewFrame');
+                if (previewFrame) {
+                    previewFrame.srcdoc = '';
+                    previewFrame.remove();
+                }
+                codeRunCode.textContent = '';
+                codeRunCode.style.display = '';
                 codeRunOutput.textContent = '点击下方按钮运行代码...';
+                codeRunOutput.style.display = '';
                 codeRunOutput.classList.remove('error');
+                codeRunBtn.textContent = '运行代码';
             });
 
             window.generateId = generateId;
@@ -1698,6 +1771,13 @@
             });
 
             codeRunBtn.addEventListener('click', async () => {
+                const previewFrame = document.getElementById('htmlPreviewFrame');
+                if (previewFrame) {
+                    previewFrame.srcdoc = document.getElementById('codeRunCode').textContent || previewFrame.srcdoc;
+                    showToast('预览已刷新');
+                    return;
+                }
+                
                 const code = codeRunCode.textContent;
                 if (!code.trim()) {
                     showToast('请输入代码', true);
