@@ -21,19 +21,11 @@ export async function onRequestPost({ request, env }) {
       headers.set('Accept', acceptHeader);
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, 300000);
-
     const nvidiaResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
       headers,
       body,
-      signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
 
     const responseHeaders = new Headers();
     nvidiaResponse.headers.forEach((value, key) => {
@@ -42,19 +34,12 @@ export async function onRequestPost({ request, env }) {
     responseHeaders.set('Access-Control-Allow-Origin', '*');
     responseHeaders.set('Cache-Control', 'no-cache');
     responseHeaders.set('Connection', 'keep-alive');
-    responseHeaders.set('Transfer-Encoding', 'chunked');
 
     return new Response(nvidiaResponse.body, {
       status: nvidiaResponse.status,
       headers: responseHeaders,
     });
   } catch (error) {
-    if (error.name === 'AbortError') {
-      return new Response(JSON.stringify({ error: '请求超时，请缩短问题或稍后重试' }), {
-        status: 504,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      });
-    }
     return new Response(JSON.stringify({ error: '服务器请求超时，请稍后重试' }), {
       status: 504,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
