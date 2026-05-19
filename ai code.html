@@ -677,6 +677,52 @@
             box-shadow: 0 0 0 4px var(--accent-glow);
             background: var(--surface-3);
         }
+        .image-preview-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--surface-2);
+            border-radius: var(--radius-lg);
+            margin-top: 8px;
+            min-height: 60px;
+        }
+        .image-preview-area:empty {
+            display: none;
+        }
+        .image-preview-item {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .image-preview-remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            background: rgba(231, 76, 60, 0.9);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .image-preview-remove:hover {
+            background: rgba(231, 76, 60, 1);
+        }
         .chat-input {
             flex: 1;
             resize: none;
@@ -1214,13 +1260,12 @@
             <div style="flex:1;min-width:120px;margin-left:8px;">
                 <label for="modelSelect" style="font-size:13px;color:var(--text-secondary);">模型：</label>
                 <select id="modelSelect" style="width:100%;max-width:200px;">
-                    <option value="qwen/qwen3-next-80b-a3b-thinking" selected>Qwen 3 Next 80B</option>
-                    <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
+                    <option value="qwen/qwen3-next-80b-a3b-thinking">Qwen 3 Next 80B</option>
+                    <option value="qwen/qwen3.5-122b-a10b" selected>Qwen 3.5 122B</option>
                     <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
                     <option value="openai/gpt-oss-120b">ChatGPT</option>
                     <option value="bytedance/seed-oss-36b-instruct">豆包</option>
                     <option value="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning">英伟达视觉3</option>
-                    <option value="deepseek-ai/deepseek-v4-flash">DeepSeek V4 Flash</option>
                     <option value="minimaxai/minimax-m2.7">MiniMax M2.7</option>
                     <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2</option>
                     <option value="google/gemma-3n-e4b-it">Google Gemma 3N E4B</option>
@@ -1257,6 +1302,7 @@
             <div class="input-wrapper">
                 <textarea class="chat-input" id="chatInput" rows="1" placeholder="输入你的编程问题或需求..."></textarea>
             </div>
+            <div class="image-preview-area" id="imagePreviewArea"></div>
             <button class="btn-send" id="btnSend">➤</button>
             <button class="btn-icon btn-plus" id="btnPlus" title="更多" style="display:none;">+</button>
         </div>
@@ -1387,13 +1433,14 @@
             const sidebarList = document.getElementById('sidebarList');
 
             const modelConfigs = {
-                'deepseek-ai/deepseek-v4-flash': {
-                    temperature: 1,
+                'qwen/qwen3.5-122b-a10b': {
+                    temperature: 0.60,
                     top_p: 0.95,
                     max_tokens: 16384,
-                    supportsThinking: true,
-                    defaultThinking: true,
-                    chat_template_kwargs: { thinking: true, reasoning_effort: "high" }
+                    supportsThinking: false,
+                    defaultThinking: false,
+                    supportsVision: true,
+                    chat_template_kwargs: { enable_thinking: false }
                 },
                 'minimaxai/minimax-m2.7': {
                     temperature: 1,
@@ -1484,6 +1531,7 @@
 
             let messages = [];
             let isGenerating = false;
+            let pendingImages = [];
             let currentConversationId = null;
             let abortController = null;
             let previousModel = modelSelect.value;
@@ -1919,7 +1967,8 @@
             function showWelcome() { if (welcomeWrap) welcomeWrap.style.display = ''; }
 
             async function sendMessage(userContent, images = [], video = null, displayContent = null) {
-                if (isGenerating || (!userContent.trim() && images.length === 0 && !video)) return;
+                const allImages = [...pendingImages.map(img => img.data), ...images];
+                if (isGenerating || (!userContent.trim() && allImages.length === 0 && !video)) return;
 
                 hideWelcome();
                 isGenerating = true;
@@ -1932,15 +1981,15 @@
                 const config = modelConfigs[model];
 
                 let userMsgContent = userContent.trim();
-                const msgImages = [...images];
+                const msgImages = [...allImages];
                 const contentParts = [];
                 
                 if (userMsgContent) {
                     contentParts.push({ type: 'text', text: userMsgContent });
                 }
                 
-                if (images.length > 0) {
-                    images.forEach(img => {
+                if (msgImages.length > 0) {
+                    msgImages.forEach(img => {
                         contentParts.push({ type: 'image_url', image_url: { url: img } });
                     });
                 }
@@ -1957,7 +2006,7 @@
                     messages.push({ 
                         role: 'user', 
                         content: JSON.stringify(msgData), 
-                        images: images,
+                        images: msgImages,
                         video: video,
                         displayContent: displayText
                     });
@@ -1965,9 +2014,13 @@
                     messages.push({ role: 'user', content: userMsgContent, displayContent: displayText });
                 }
 
-                chatContainer.appendChild(createMsgEl('user', displayText, images, video));
+                // 清空预览区域和待发送图片
+                pendingImages = [];
+                document.getElementById('imagePreviewArea').innerHTML = '';
                 chatInput.value = '';
                 chatInput.style.height = 'auto';
+
+                chatContainer.appendChild(createMsgEl('user', displayText, msgImages, video));
                 scrollToBottom();
 
                 const showReasoning = config.supportsThinking && thinkingToggle.classList.contains('active');
@@ -2147,7 +2200,11 @@
             btnSend.addEventListener('click', () => {
                 if (btnSend.classList.contains('stop')) {
                     stopGeneration();
-                } else if (chatInput.value.trim()) {
+                } else if (chatInput.value.trim() || pendingImages.length > 0) {
+                    if (pendingImages.length > 0 && !chatInput.value.trim()) {
+                        showToast('请输入图片描述');
+                        return;
+                    }
                     sendMessage(chatInput.value, []);
                 }
             });
@@ -2198,16 +2255,39 @@
             async function handleImageFiles(files) {
                 if (!files || files.length === 0) return;
 
-                const images = [];
-                for (const file of files) {
+                const imagePreviewArea = document.getElementById('imagePreviewArea');
+                
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
                     const base64 = await fileToBase64(file);
-                    images.push(base64);
+                    const imageId = 'preview_' + Date.now() + '_' + i;
+                    
+                    pendingImages.push({
+                        id: imageId,
+                        data: base64,
+                        type: file.type
+                    });
+
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'image-preview-item';
+                    previewItem.id = imageId;
+                    previewItem.innerHTML = `
+                        <img src="${base64}" alt="预览图片">
+                        <button class="image-preview-remove" onclick="removePreviewImage('${imageId}')">✕</button>
+                    `;
+                    imagePreviewArea.appendChild(previewItem);
                 }
 
-                sendMessage(chatInput.value.trim(), images);
-                chatInput.value = '';
-                chatInput.style.height = 'auto';
+                chatInput.focus();
             }
+
+            window.removePreviewImage = function(imageId) {
+                const previewItem = document.getElementById(imageId);
+                if (previewItem) {
+                    previewItem.remove();
+                    pendingImages = pendingImages.filter(img => img.id !== imageId);
+                }
+            };
 
             fileInput.addEventListener('change', async (e) => {
                 await handleImageFiles(e.target.files);
