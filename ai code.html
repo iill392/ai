@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CodeSec学院</title>
+    <title>金龙编程学院</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
@@ -1278,7 +1278,7 @@
                 <div class="header-left">
                     <div class="logo-icon">💻</div>
                     <div>
-                        <div class="header-title">CodeSec学院</div>
+                        <div class="header-title">金龙AI编程</div>
                         <div class="header-subtitle">编程与网络安全教学平台</div>
                     </div>
                 </div>
@@ -1323,14 +1323,14 @@
             <div class="welcome-wrap" id="welcomeWrap">
                 <div class="welcome-card" style="max-width:600px;">
                     <div class="welcome-emoji" id="modeEmoji">⚡</div>
-                    <div class="welcome-title" id="modeTitle">CodeSec学院 - 自动编程模式</div>
+                    <div class="welcome-title" id="modeTitle">金龙AI编程 - 自动编程模式</div>
                     <div class="welcome-desc" id="modeDesc">我可以帮你编程、帮你debug、解释代码、优化性能。<br>选择模式后，我可以更有针对性地帮助你。</div>
 
                     <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:20px;" id="quickButtons">
-                        <button onclick="sendQuickTopic('帮我写一个Python爬虫程序')" style="background:var(--accent);color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐍 Python</button>
-                        <button onclick="sendQuickTopic('帮我优化这段JavaScript代码')" style="background:#f7df1e;color:#000;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">📜 JavaScript</button>
-                        <button onclick="sendQuickTopic('帮我分析这个算法的复杂度')" style="background:#e74c3c;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🧮 算法</button>
-                        <button onclick="sendQuickTopic('帮我debug这段代码')" style="background:#2ecc71;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐛 代码答疑</button>
+                        <button onclick="sendQuickTopic('帮我写一个html贪吃蛇小游戏')" style="background:var(--accent);color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐍 html</button>
+                        <button onclick="sendQuickTopic('帮我写一段JavaScript代码示例')" style="background:#f7df1e;color:#000;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">📜 JavaScript</button>
+                        <button onclick="sendQuickTopic('帮我讲一下算法的复杂度')" style="background:#e74c3c;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🧮 算法</button>
+                        <button onclick="sendQuickTopic('教我如何debug代码')" style="background:#2ecc71;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐛 代码答疑</button>
                     </div>
                 </div>
             </div>
@@ -1424,14 +1424,14 @@
                 modeSecurity.style.border = '1px solid rgba(255,255,255,0.1)';
 
                 modeEmoji.textContent = '⚡';
-                modeTitle.textContent = 'CodeSec学院 - 自动编程模式';
+                modeTitle.textContent = '金龙学院 - 自动编程模式';
                 modeDesc.innerHTML = '我可以帮你编程、帮你debug、解释代码、优化性能。';
 
                 quickButtons.innerHTML = `
-                    <button onclick="sendQuickTopic('帮我写一个Python爬虫程序')" style="background:var(--accent);color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐍 Python</button>
-                    <button onclick="sendQuickTopic('帮我优化这段JavaScript代码')" style="background:#f7df1e;color:#000;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">📜 JavaScript</button>
-                    <button onclick="sendQuickTopic('帮我分析这个算法的复杂度')" style="background:#e74c3c;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🧮 算法</button>
-                    <button onclick="sendQuickTopic('帮我debug这段代码')" style="background:#2ecc71;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐛 代码答疑</button>
+                    <button onclick="sendQuickTopic('帮我写一个html贪吃蛇小游戏')" style="background:var(--accent);color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐍 Python</button>
+                    <button onclick="sendQuickTopic('帮我写一段JavaScript代码示例')" style="background:#f7df1e;color:#000;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">📜 JavaScript</button>
+                    <button onclick="sendQuickTopic('帮我讲算法的复杂度')" style="background:#e74c3c;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🧮 算法</button>
+                    <button onclick="sendQuickTopic('教我debug代码')" style="background:#2ecc71;color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:13px;">🐛 代码答疑</button>
                 `;
             } else if (mode === 'security') {
                 modeSecurity.style.background = '#e74c3c';
@@ -1441,7 +1441,7 @@
                 modeProgramming.style.border = '1px solid rgba(255,255,255,0.1)';
 
                 modeEmoji.textContent = '🛡️';
-                modeTitle.textContent = 'CodeSec学院 - 安全导师模式';
+                modeTitle.textContent = '金龙学院 - 安全导师模式';
                 modeDesc.innerHTML = '我可以帮你学习Web安全、渗透测试、CTF竞赛技巧、逆向工程等。';
 
                 quickButtons.innerHTML = `
