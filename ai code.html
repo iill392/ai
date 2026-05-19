@@ -1467,13 +1467,6 @@
                     defaultThinking: false,
                     chat_template_kwargs: { enable_thinking: false, reasoning_budget: 0 }
                 },
-                'qwen/qwen3.5-122b-a10b': {
-                    temperature: 0.70,
-                    top_p: 0.80,
-                    max_tokens: 16384,
-                    supportsThinking: true,
-                    defaultThinking: false
-                },
                 'qwen/qwen3-next-80b-a3b-thinking': {
                     temperature: 0.6,
                     top_p: 0.7,
@@ -2058,33 +2051,61 @@
                 });
 
                 const payload = {
-                    model: model,
-                    messages: payloadMessages,
-                    temperature: config.temperature,
-                    top_p: config.top_p,
-                    max_tokens: config.max_tokens,
-                    stream: true,
-                    chat_template_kwargs: chatTemplateKwargs
-                };
-                if (config.seed !== undefined) payload.seed = config.seed;
+                        model: model,
+                        messages: payloadMessages,
+                        temperature: config.temperature,
+                        top_p: config.top_p,
+                        max_tokens: config.max_tokens,
+                        stream: true,
+                        chat_template_kwargs: chatTemplateKwargs
+                    };
+                    if (config.seed !== undefined) payload.seed = config.seed;
 
-                try {
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => {
-                            abortController.abort();
-                            reject(new Error('请求超时'));
-                        }, 300000);
-                    });
+                    try {
+                        const timeoutPromise = new Promise((_, reject) => {
+                            setTimeout(() => {
+                                abortController.abort();
+                                reject(new Error('请求超时'));
+                            }, 300000);
+                        });
 
-                    const fetchPromise = fetch('/api/chat', {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Accept': 'text/event-stream'
-                        },
-                        body: JSON.stringify(payload),
-                        signal: abortController.signal,
-                    });
+                        let fetchOptions;
+                        const hasImages = payloadMessages.some(msg => 
+                            msg.content && Array.isArray(msg.content) && 
+                            msg.content.some(part => part.type === 'image_url')
+                        );
+
+                        if (hasImages) {
+                            const formData = new FormData();
+                            formData.append('model', model);
+                            formData.append('messages', JSON.stringify(payloadMessages));
+                            formData.append('temperature', config.temperature.toString());
+                            formData.append('top_p', config.top_p.toString());
+                            formData.append('max_tokens', config.max_tokens.toString());
+                            formData.append('chat_template_kwargs', JSON.stringify(chatTemplateKwargs));
+                            if (config.seed !== undefined) formData.append('seed', config.seed.toString());
+
+                            fetchOptions = {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'text/event-stream'
+                                },
+                                body: formData,
+                                signal: abortController.signal,
+                            };
+                        } else {
+                            fetchOptions = {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'text/event-stream'
+                                },
+                                body: JSON.stringify(payload),
+                                signal: abortController.signal,
+                            };
+                        }
+
+                        const fetchPromise = fetch('/api/chat', fetchOptions);
 
                     const response = await Promise.race([fetchPromise, timeoutPromise]);
 
