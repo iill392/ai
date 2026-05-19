@@ -1261,12 +1261,13 @@
                 <label for="modelSelect" style="font-size:13px;color:var(--text-secondary);">模型：</label>
                 <select id="modelSelect" style="width:100%;max-width:200px;">
                     <option value="qwen/qwen3-next-80b-a3b-thinking">Qwen 3 Next 80B</option>
-                    <option value="qwen/qwen3.5-122b-a10b" selected>Qwen 3.5 122B</option>
+                    <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
                     <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
                     <option value="openai/gpt-oss-120b">ChatGPT</option>
                     <option value="bytedance/seed-oss-36b-instruct">豆包</option>
                     <option value="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning">英伟达视觉3</option>
                     <option value="minimaxai/minimax-m2.7">MiniMax M2.7</option>
+                    <option value="deepseek-ai/deepseek-v3.1" selected>DeepSeek V3.1</option>
                     <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2</option>
                     <option value="google/gemma-3n-e4b-it">Google Gemma 3N E4B</option>
                 </select>
@@ -1441,6 +1442,18 @@
                     defaultThinking: false,
                     supportsVision: true,
                     chat_template_kwargs: { enable_thinking: false }
+                },
+                'deepseek-ai/deepseek-v3.1': {
+                    temperature: 0.60,
+                    top_p: 0.95,
+                    max_tokens: 16384,
+                    top_k: 20,
+                    presence_penalty: 0,
+                    repetition_penalty: 1,
+                    supportsThinking: true,
+                    defaultThinking: true,
+                    supportsVision: true,
+                    chat_template_kwargs: { thinking: true }
                 },
                 'minimaxai/minimax-m2.7': {
                     temperature: 1,
@@ -2060,6 +2073,9 @@
                         chat_template_kwargs: chatTemplateKwargs
                     };
                     if (config.seed !== undefined) payload.seed = config.seed;
+                    if (config.top_k !== undefined) payload.top_k = config.top_k;
+                    if (config.presence_penalty !== undefined) payload.presence_penalty = config.presence_penalty;
+                    if (config.repetition_penalty !== undefined) payload.repetition_penalty = config.repetition_penalty;
 
                     try {
                         const timeoutPromise = new Promise((_, reject) => {
@@ -2084,6 +2100,9 @@
                             formData.append('max_tokens', config.max_tokens.toString());
                             formData.append('chat_template_kwargs', JSON.stringify(chatTemplateKwargs));
                             if (config.seed !== undefined) formData.append('seed', config.seed.toString());
+                            if (config.top_k !== undefined) formData.append('top_k', config.top_k.toString());
+                            if (config.presence_penalty !== undefined) formData.append('presence_penalty', config.presence_penalty.toString());
+                            if (config.repetition_penalty !== undefined) formData.append('repetition_penalty', config.repetition_penalty.toString());
 
                             fetchOptions = {
                                 method: 'POST',
