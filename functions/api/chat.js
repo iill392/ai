@@ -25,6 +25,9 @@ export async function onRequestPost({ request, env }) {
       const top_p = formData.get('top_p');
       const max_tokens = formData.get('max_tokens');
       const chat_template_kwargs = formData.get('chat_template_kwargs');
+      const top_k = formData.get('top_k');
+      const presence_penalty = formData.get('presence_penalty');
+      const repetition_penalty = formData.get('repetition_penalty');
       
       // 构建 NVIDIA API 请求
       const nvidiaBody = {
@@ -35,6 +38,10 @@ export async function onRequestPost({ request, env }) {
         top_p: parseFloat(top_p),
         stream: true
       };
+
+      if (top_k && top_k !== 'undefined') nvidiaBody.top_k = parseInt(top_k);
+      if (presence_penalty && presence_penalty !== 'undefined') nvidiaBody.presence_penalty = parseFloat(presence_penalty);
+      if (repetition_penalty && repetition_penalty !== 'undefined') nvidiaBody.repetition_penalty = parseFloat(repetition_penalty);
       
       if (chat_template_kwargs && chat_template_kwargs !== 'undefined') {
         try {
@@ -65,7 +72,7 @@ export async function onRequestPost({ request, env }) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
-    }, 300000);
+    }, 600000);
 
     const nvidiaResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',

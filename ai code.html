@@ -468,6 +468,45 @@
             background: rgba(0, 212, 255, 0.3);
             color: #00d4ff;
         }
+        .code-toolbar-bottom {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            flex-wrap: wrap;
+        }
+        .code-toolbar-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--surface-2);
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .code-toolbar-btn:hover {
+            background: var(--surface-3);
+            color: var(--text);
+        }
+        .code-toolbar-btn.copy-all {
+            color: #4ecdc4;
+            border-color: rgba(78, 205, 196, 0.3);
+        }
+        .code-toolbar-btn.copy-all:hover {
+            background: rgba(78, 205, 196, 0.1);
+        }
+        .code-toolbar-btn.preview-html {
+            color: #00d4ff;
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+        .code-toolbar-btn.preview-html:hover {
+            background: rgba(0, 212, 255, 0.1);
+        }
         .code-btn:active {
             transform: scale(0.95);
         }
@@ -1260,10 +1299,10 @@
             <div style="flex:1;min-width:120px;margin-left:8px;">
                 <label for="modelSelect" style="font-size:13px;color:var(--text-secondary);">模型：</label>
                 <select id="modelSelect" style="width:100%;max-width:200px;">
-                    <option value="qwen/qwen3-coder-480b-a35b-instruct" selected>Qwen 3 Coder 480B（默认）</option>
+                    <option value="qwen/qwen3.5-122b-a10b" selected>Qwen 3.5 122B（默认）</option>
+                    <option value="qwen/qwen3-coder-480b-a35b-instruct">Qwen 3 Coder 480B</option>
                     <option value="qwen/qwen3.5-397b-a17b">Qwen 3.5 397B</option>
                     <option value="qwen/qwen3-next-80b-a3b-thinking">Qwen 3 Next 80B</option>
-                    <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
                     <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
                     <option value="openai/gpt-oss-120b">ChatGPT</option>
                     <option value="bytedance/seed-oss-36b-instruct">豆包</option>
@@ -1740,7 +1779,7 @@
                 chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
             }
 
-            function renderMarkdownWithCodeButtons(content) {
+            function renderMarkdownWithCodeButtons(content, isAssistant = false) {
                 let html = marked.parse(content);
                 html = html.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/g, (match, attrs, codeContent) => {
                     const codeId = 'code-' + generateId();
@@ -1750,8 +1789,58 @@
                         : '';
                     return `<div class="code-block-wrap"><div class="code-header"><button class="code-btn copy" data-code-id="${codeId}" onclick="copyCode('${codeId}')">📋 复制</button>${runBtn}</div><div class="code-scroll-wrapper"><pre id="${codeId}" class="code-content" data-lang="${isHtml ? 'html' : 'other'}"><code${attrs}>${codeContent}</code></pre></div></div>`;
                 });
+                
+                if (isAssistant) {
+                    const hasCode = /<pre><code/.test(html);
+                    const hasHtmlCode = /class="[^"]*language-html[^"]*"|class="[^"]*language-htm[^"]*"/.test(html);
+                    
+                    if (hasCode) {
+                        const codeToolBar = `<div class="code-toolbar-bottom"><button class="code-toolbar-btn copy-all" onclick="copyAllCode(this)">📋 复制全部代码</button>${hasHtmlCode ? '<button class="code-toolbar-btn preview-html" onclick="previewAllHtml(this)">▶️ 预览HTML</button>' : ''}</div>`;
+                        html += codeToolBar;
+                    }
+                }
+                
                 return html;
             }
+            
+            window.copyAllCode = function(btn) {
+                const msgBubble = btn.closest('.msg-bubble');
+                const codeBlocks = msgBubble.querySelectorAll('.code-content');
+                let allCode = '';
+                codeBlocks.forEach((code, index) => {
+                    if (index > 0) allCode += '\n\n';
+                    allCode += code.textContent || code.innerText;
+                });
+                navigator.clipboard.writeText(allCode).then(() => {
+                    showToast('全部代码已复制到剪贴板');
+                }).catch(() => {
+                    showToast('复制失败', true);
+                });
+            };
+            
+            window.previewAllHtml = function(btn) {
+                const msgBubble = btn.closest('.msg-bubble');
+                const codeBlocks = msgBubble.querySelectorAll('.code-content[data-lang="html"]');
+                if (codeBlocks.length > 0) {
+                    const htmlCode = codeBlocks[0].textContent || codeBlocks[0].innerText;
+                    const codeId = 'preview-' + Date.now();
+                    document.getElementById('codeRunCode').innerHTML = '';
+                    document.getElementById('codeRunCode').style.display = 'none';
+                    const previewFrame = document.getElementById('htmlPreviewFrame');
+                    if (previewFrame) {
+                        previewFrame.srcdoc = htmlCode;
+                    } else {
+                        const iframe = document.createElement('iframe');
+                        iframe.id = 'htmlPreviewFrame';
+                        iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:8px;background:#fff;';
+                        iframe.srcdoc = htmlCode;
+                        document.getElementById('codeRunCode').parentElement.insertBefore(iframe, document.getElementById('codeRunCode').nextSibling);
+                    }
+                    document.getElementById('codeRunOutput').textContent = '';
+                    document.getElementById('codeRunOutput').style.display = 'none';
+                    document.getElementById('codeRunOverlay').classList.add('show');
+                }
+            };
 
             function copyCode(codeId) {
                 const codeElement = document.getElementById(codeId);
@@ -1933,7 +2022,7 @@
                     bubble.innerHTML = '<div class="typing-container"><span>正在思考中</span><div class="typing-dots"><span></span><span></span><span></span></div></div>';
                 } else {
                     if (content) {
-                        bubble.innerHTML = renderMarkdownWithCodeButtons(content) || content;
+                        bubble.innerHTML = renderMarkdownWithCodeButtons(content, role === 'assistant') || content;
                     }
                     if (video) {
                         const videoEl = document.createElement('video');
@@ -2137,16 +2226,17 @@
                     const decoder = new TextDecoder();
                     let buffer = '';
                     let lastActivityTime = Date.now();
+                    let hasReceivedAnyData = false;
 
                     while (true) {
                         const readPromise = reader.read();
                         const timeoutPromise = new Promise((_, reject) => {
                             setTimeout(() => {
-                                if (Date.now() - lastActivityTime > 60000) {
+                                if (Date.now() - lastActivityTime > 120000) {
                                     abortController.abort();
                                     reject(new Error('连接超时'));
                                 }
-                            }, 65000);
+                            }, 130000);
                         });
 
                         const { done, value } = await Promise.race([readPromise, timeoutPromise]);
@@ -2154,6 +2244,7 @@
                         if (done) break;
 
                         lastActivityTime = Date.now();
+                        hasReceivedAnyData = true;
                         buffer += decoder.decode(value, { stream: true });
                         const lines = buffer.split('\n');
                         buffer = lines.pop() || '';
@@ -2186,7 +2277,7 @@
 
                                 if (delta?.content) {
                                     fullContent += delta.content;
-                                    bubble.innerHTML = renderMarkdownWithCodeButtons(fullContent) || fullContent;
+                                    bubble.innerHTML = renderMarkdownWithCodeButtons(fullContent, true) || fullContent;
                                     if (isNearBottom(40)) scrollToBottom(false);
                                 }
                             } catch (e) {}
