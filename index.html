@@ -940,15 +940,12 @@
         <div class="controls">
             <label for="modelSelect">模型：</label>
             <select id="modelSelect">
-                <option value="qwen/qwen3-next-80b-a3b-thinking" selected>Qwen 3 Next 80B</option>
+                <option value="openai/gpt-oss-120b" selected>ChatGPT</option>
                 <option value="qwen/qwen3.5-122b-a10b">Qwen 3.5 122B</option>
                 <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron 3 Super</option>
-                <option value="openai/gpt-oss-120b">ChatGPT</option>
                 <option value="bytedance/seed-oss-36b-instruct">豆包</option>
                 <option value="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning">英伟达视觉3</option>
-                <option value="deepseek-ai/deepseek-v3.1-terminus">DeepSeek V3.1 🐳慢</option>
                 <option value="minimaxai/minimax-m2.7">MiniMax M2.7 🐳慢</option>
-                <option value="deepseek-ai/deepseek-v3.2">DeepSeek V3.2 🐳慢</option>
                 <option value="google/gemma-3n-e4b-it">Google Gemma 3N E4B 🐳慢</option>
             </select>
             <span id="modelPlaceholder" class="model-placeholder" style="display:none;">AI生成仅供参考</span>
@@ -1133,6 +1130,7 @@
                     apiUrl: 'https://integrate.api.nvidia.com/v1/chat/completions'
                 }
             };
+            const hiddenContext = "你必须使用中文回答所有问题";
 
             let messages = [];
             let isGenerating = false;
@@ -1218,7 +1216,7 @@
             function loadConversation(conv) {
                 messages = [...conv.messages];
                 currentConversationId = conv.id;
-                modelSelect.value = conv.model || 'qwen/qwen3-next-80b-a3b-thinking';
+                modelSelect.value = conv.model || 'openai/gpt-oss-120b';
                 updateThinkingToggle();
                 const config = modelConfigs[modelSelect.value];
                 chatContainer.querySelectorAll('.message').forEach(el => el.remove());
@@ -1520,9 +1518,10 @@
                     return { role: m.role, content: m.content };
                 });
 
+                const systemMessage = { role: 'system', content: hiddenContext };
                 const payload = {
                     model: model,
-                    messages: payloadMessages,
+                    messages: [systemMessage, ...payloadMessages],
                     temperature: config.temperature,
                     top_p: config.top_p,
                     max_tokens: config.max_tokens,
