@@ -1610,13 +1610,6 @@
 
                                 if (delta?.content) {
                                     fullContent += delta.content;
-                                    if (containsProfanity(fullContent)) {
-                                        profanityTriggered = true;
-                                        fullContent = PROFANITY_REPLY;
-                                        bubble.innerHTML = '<p>' + PROFANITY_REPLY + '</p>';
-                                        abortController.abort();
-                                        break;
-                                    }
                                     bubble.innerHTML = marked.parse(fullContent) || fullContent;
                                     if (isNearBottom(40)) scrollToBottom(false);
                                 }
@@ -1626,6 +1619,11 @@
                     }
 
                     if (fullContent) {
+                        if (containsProfanity(fullContent)) {
+                            profanityTriggered = true;
+                            assistantEl.style.display = 'none';
+                            showToast('该内容包含敏感词，已自动隐藏');
+                        }
                         messages.push({ role: 'assistant', content: fullContent, reasoning: reasoningText || null });
                     } else if (!reasoningText) {
                         bubble.innerHTML = '<p>（无回复内容）</p>';
