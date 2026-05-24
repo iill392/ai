@@ -1348,10 +1348,8 @@ let pendingVideo = null;
                     userInfoText += `，时辰：${time}`;
                 }
                 userInfoText += '。请帮我算算命。';
-                
-                const fullMessage = systemPrompt + '\n\n' + userInfoText;
-                
-                sendMessage(fullMessage, [], null, `提交的信息：${name}，${gender}，${birthdate}${time ? '，' + time : ''}`);
+
+                sendMessage(userInfoText, [], null, `提交的信息：${name}，${gender}，${birthdate}${time ? '，' + time : ''}`);
             }
 
             formSubmit.addEventListener('click', handleFormSubmit);
