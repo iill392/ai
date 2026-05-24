@@ -1149,23 +1149,25 @@
             const userBirthDayInput = document.getElementById('userBirthDay');
             const userTimeSelect = document.getElementById('userTime');
 
-            const DEFAULT_MODEL = 'openai/gpt-oss-120b';
+            const DEFAULT_MODEL = 'qwen/qwen3.5-122b-a10b';
 
             const DEFAULT_MODEL_CONFIG = {
-                temperature: 1,
-                top_p: 1,
-                max_tokens: 4096,
+                temperature: 0.60,
+                top_p: 0.95,
+                max_tokens: 16384,
                 frequency_penalty: 0,
                 presence_penalty: 0,
                 supportsThinking: true,
                 defaultThinking: true,
                 alwaysThinking: true,
-                chat_template_kwargs: { reasoning_effort: 'medium' },
+                chat_template_kwargs: { enable_thinking: true },
                 apiUrl: 'https://integrate.api.nvidia.com/v1/chat/completions'
             };
 
             const hiddenContext = "你必须使用中文回答所有问题，并且你给用户算命时一定不要说死语，例如：你活不过今年了。你今天必定会有大灾。等，若用户提供的信息不完整你可以询问用户，例如：出生日期是公历【阳历】的还是农历【阴历】的？。以上内容请仔细阅读并严格遵循";
 let messages = [];
+let pendingImages = [];
+let pendingVideo = null;
             let isGenerating = false;
             let currentConversationId = null;
             let abortController = null;
@@ -1617,8 +1619,14 @@ let messages = [];
             btnSend.addEventListener('click', () => {
                 if (btnSend.classList.contains('stop')) {
                     stopGeneration();
-                } else if (chatInput.value.trim()) {
-                    sendMessage(chatInput.value, []);
+                } else if (chatInput.value.trim() || pendingImages.length > 0 || pendingVideo) {
+                    // 将待发送的图片和视频一起发送
+                    const imagesToSend = pendingImages.slice();
+                    const videoToSend = pendingVideo;
+                    // 清空待发送队列
+                    pendingImages = [];
+                    pendingVideo = null;
+                    sendMessage(chatInput.value.trim(), imagesToSend, videoToSend);
                 }
             });
 
@@ -1673,10 +1681,10 @@ let messages = [];
                     const base64 = await fileToBase64(file);
                     images.push(base64);
                 }
-
-                sendMessage(chatInput.value.trim(), images);
-                chatInput.value = '';
-                chatInput.style.height = 'auto';
+                // 将图片加入待发送队列，等待用户点击发送按钮后一起发送
+                pendingImages = pendingImages.concat(images);
+                showToast(`已选择 ${images.length} 张图片，等您点击发送后一起发送`, false);
+                // 不立即发送，保持输入框内容不变
             }
 
             fileInput.addEventListener('change', async (e) => {
@@ -1694,7 +1702,9 @@ let messages = [];
                 
                 const file = e.target.files[0];
                 const base64 = await fileToBase64(file);
-                sendMessage('', [], null, base64);
+                // 将视频加入待发送队列，等待用户点击发送后一起发送
+                pendingVideo = base64;
+                showToast('已选择视频，等您点击发送后一起发送', false);
                 videoInput.value = '';
             });
 
