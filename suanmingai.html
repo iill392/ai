@@ -1169,8 +1169,7 @@
                 defaultThinking: true,
                 alwaysThinking: true,
                 chat_template_kwargs: { enable_thinking: true },
-                apiUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-                apiKey: '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'
+                apiUrl: 'https://integrate.api.nvidia.com/v1/chat/completions'
             };
 
             const hiddenContext = "你必须使用中文回答所有问题，并且你给用户算命时一定不要说死语，例如：你活不过今年了。你今天必定会有大灾。等，若用户提供的信息不完整你可以询问用户，例如：出生日期是公历【阳历】的还是农历【阴历】的？。以上内容请仔细阅读并严格遵循";
@@ -1542,7 +1541,7 @@ let pendingVideo = null;
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${config.apiKey}`,
+                            'Authorization': 'Bearer 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',
                             'Accept': 'text/event-stream'
                         },
                         body: JSON.stringify(payload),
