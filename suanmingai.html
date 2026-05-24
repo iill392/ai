@@ -1037,16 +1037,7 @@
             </div>
         </div>
 
-        <div class="controls" id="controlsArea">
-            <div class="toggle-label">
-                <span>深度思考</span>
-                <div class="toggle-switch active" id="thinkingToggle"></div>
-            </div>
-            <div style="flex:1;min-width:0;display:flex;gap:6px;align-items:center;">
-                <input type="password" id="apiKeyInput" placeholder="NVIDIA API Key（输入后点击保存）" style="flex:1;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:var(--surface-2);color:var(--text);font-size:13px;outline:none;min-width:80px;" />
-                <button class="btn-icon" id="btnSaveKey" style="width:34px;height:34px;border-radius:50%;border:none;background:var(--surface-2);color:var(--text-secondary);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">💾</button>
-            </div>
-        </div>
+        <div class="controls" style="display:none;"></div>
 
         <div class="chat-container" id="chatContainer">
             <div class="welcome-wrap" id="welcomeWrap" style="display:none;">
@@ -1146,6 +1137,8 @@
             const chatInput = document.getElementById('chatInput');
             const btnSend = document.getElementById('btnSend');
             const scrollBottomBtn = document.getElementById('scrollBottomBtn');
+            const modelSelect = document.getElementById('modelSelect');
+            const modelPlaceholder = document.getElementById('modelPlaceholder');
             const toast = document.getElementById('toast');
             const sidebar = document.getElementById('sidebar');
             const fileInput = document.getElementById('fileInput');
@@ -1176,13 +1169,11 @@
                 defaultThinking: true,
                 alwaysThinking: true,
                 chat_template_kwargs: { enable_thinking: true },
-                apiUrl: 'https://integrate.api.nvidia.com/v1/chat/completions'
+                apiUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
+                apiKey: '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'
             };
 
             const hiddenContext = "你必须使用中文回答所有问题，并且你给用户算命时一定不要说死语，例如：你活不过今年了。你今天必定会有大灾。等，若用户提供的信息不完整你可以询问用户，例如：出生日期是公历【阳历】的还是农历【阴历】的？。以上内容请仔细阅读并严格遵循";
-            const systemPrompt = hiddenContext;
-            let thinkingEnabled = true;
-            let apiKey = localStorage.getItem('nvidia_api_key') || '';
 let messages = [];
 let pendingImages = [];
 let pendingVideo = null;
@@ -1521,6 +1512,8 @@ let pendingVideo = null;
                 let fullContent = '';
                 let reasoningText = '';
 
+                let chatTemplateKwargs = { enable_thinking: true };
+
                 const payloadMessages = messages.map(m => {
                     if (m.images && m.images.length > 0) {
                         try {
@@ -1533,7 +1526,6 @@ let pendingVideo = null;
                 });
 
                 const systemMessage = { role: 'system', content: hiddenContext };
-                const chatTemplateKwargs = { enable_thinking: thinkingEnabled };
                 const payload = {
                     model: model,
                     messages: [systemMessage, ...payloadMessages],
@@ -1545,23 +1537,13 @@ let pendingVideo = null;
                 };
                 if (config.seed !== undefined) payload.seed = config.seed;
 
-                if (!apiKey) {
-                    bubble.innerHTML = '<p>❌ 请先设置 NVIDIA API Key</p>';
-                    showToast('请先设置 NVIDIA API Key', true);
-                    isGenerating = false;
-                    abortController = null;
-                    btnSend.textContent = '➤';
-                    btnSend.classList.remove('stop');
-                    btnSend.disabled = false;
-                    return;
-                }
-
                 try {
-                    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+                    const response = await fetch(config.apiUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + apiKey
+                            'Authorization': `Bearer ${config.apiKey}`,
+                            'Accept': 'text/event-stream'
                         },
                         body: JSON.stringify(payload),
                         signal: abortController.signal,
@@ -1890,40 +1872,6 @@ let pendingVideo = null;
             }
 
             initKeyboardFix();
-
-            // ============ 深度思考开关 ============
-            const thinkingToggle = document.getElementById('thinkingToggle');
-            if (thinkingToggle) {
-                thinkingToggle.addEventListener('click', () => {
-                    thinkingEnabled = !thinkingEnabled;
-                    thinkingToggle.classList.toggle('active', thinkingEnabled);
-                    showToast(thinkingEnabled ? '深度思考已开启' : '深度思考已关闭');
-                });
-            }
-
-            // ============ API Key 管理 ============
-            const apiKeyInput = document.getElementById('apiKeyInput');
-            const btnSaveKey = document.getElementById('btnSaveKey');
-            if (apiKeyInput && apiKey) {
-                apiKeyInput.value = apiKey;
-            }
-            if (btnSaveKey && apiKeyInput) {
-                btnSaveKey.addEventListener('click', () => {
-                    const key = apiKeyInput.value.trim();
-                    if (!key) {
-                        showToast('请输入 API Key', true);
-                        return;
-                    }
-                    apiKey = key;
-                    localStorage.setItem('nvidia_api_key', key);
-                    showToast('API Key 已保存');
-                });
-                apiKeyInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        btnSaveKey.click();
-                    }
-                });
-            }
         })();
     </script>
 </body>
