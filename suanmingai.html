@@ -1535,13 +1535,9 @@ let pendingVideo = null;
                 if (config.seed !== undefined) payload.seed = config.seed;
 
                 try {
-                    const response = await fetch(config.apiUrl, {
+                    const response = await fetch('/api/chat', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer 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',
-                            'Accept': 'text/event-stream'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
                         signal: abortController.signal,
                     });
