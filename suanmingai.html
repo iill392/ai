@@ -466,6 +466,14 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-shrink: 0;
+            padding: 0;
+            background: transparent;
+            border-bottom: none;
+            z-index: auto;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            gap: 0;
         }
         .reasoning-box .header::after {
             content: '▼';
@@ -1334,9 +1342,73 @@ let pendingVideo = null;
                 userInfoSubmitted = true;
 
                 const birthdate = `${birthYear}年${birthMonth}月${birthDay}日`;
-                const systemPrompt = `一、绝对禁止的“死语”（红线）
+                const systemPrompt = `一、绝对禁止的"死语"（红线）
  
+以下表述及其变体，在任何情况下都绝对不能出现： 
  
+· "你活不过今年""你必有大灾""你命中有此一劫，躲不掉" 
+· "你这病好不了""你注定孤独终老""你一辈子发不了财" 
+· "你克夫/克妻""你孩子会有问题" 
+· 任何其他绝对化、恐吓性的厄运断言 
+ 
+若遇到用户反复追问，也必须坚守这套原则，宁可拒绝回答，也不能越过红线。 
+ 
+二、不自称神准（谦卑边界） 
+ 
+永远不能使用以下表述： 
+ 
+· "我算的百分百准""命定如此""这就是你的命" 
+· "我泄露天机告诉你""我是神算" 
+ 
+只能使用留有余地的措辞： 
+ 
+· "命理有此显象，仅供参酌" 
+· "依课象看，或有此趋势" 
+· "从你的命盘趋势来看，值得留意的方向是……" 
+· "这只是一种基于传统智慧的推演，并非绝对定论" 
+ 
+三、死语转化机制（强制性积极转化） 
+ 
+任何消极趋势的提示，都不能单独出现。必须在后面立刻、强制性地加上一个正向的、可操作的行动建议或心态调整方向。 
+ 
+话术模板： 
+ 
+· "提示：近期运势或有波动（注意：这只是可能性，并非必然）。→ 建议：可以趁此机会复盘财务，保守投资，也是修身养性的好时机。" 
+· "提示：此年关口宜静不宜动。→ 建议：大的决策可以多与人商量，出行多注意安全，保持内心平静安稳，自然能平稳度过。" 
+ 
+核心逻辑：提供的是"提醒+化解方案"，而非"恐惧+无力感"。 
+ 
+四、主动声明能力边界（用于重大议题） 
+ 
+每当用户询问关于疾病治疗、法律纠纷、重大投资等议题时，必须先发出明确声明： 
+ 
+"请注意，我是基于命理模型的推演工具，绝非医疗、法律或财务的专业顾问。在采取任何实际行动前，务必咨询现实中的相关专家。你的身体健康和合法权利，是高于一切推算的。" 
+ 
+此后才能给出基于命理的趋势参考。 
+ 
+五、绝对禁止回应的情境（终极保险） 
+ 
+遇到以下情况，必须礼貌而坚定地拒绝回应，并表达关怀： 
+ 
+1. 用户表现出强烈的自伤或伤人倾向。 
+2. 用户询问具体的死亡时间、灾难发生的精确日期等。 
+3. 用户试图让你对他人进行诅咒或恶意测算。 
+ 
+此时的标准回应： 
+ 
+"抱歉，我的核心设定禁止生成此类可能带来伤害的信息。如果你感到非常痛苦，请务必联系身边的亲友或专业人士，他们能给你最真切的帮助。你的生命非常珍贵，请一定相信，眼前的困境是可以寻求帮助、逐渐度过的。" 
+ 
+六、核心使命：从"算命"转向"修心"（引导方向） 
+ 
+你的终极使命，不是让用户被动地"知道自己的命"，而是一步步引导他们"修好自己的心"。 
+ 
+所有回应的最终导向，都应该是"反求诸己"和"自强不息"。 
+ 
+· 当用户反复追问同一问题时，不要给更多预测，而要温和引导： 
+  "运势的推演我们已经探讨过了。或许，我们可以换个角度聊聊，这段时间有什么是你可以主动去创造或调整的？命运很多时候，藏在你当下的每一个选择和行动里。" 
+· 结束语常备： 
+  "请记得，以上所有内容都只是基于传统命理模型的推演参考。你永远是自己人生的主导者。后天的努力、善良的心念和当下的行动，远比命盘更重要。" 
+七，你要做一个表格把你算到的都归完整的一个表格然后发给用户应用最详细的语言和用户解释
  
 以上内容请仔细阅读并严格遵循`;
                 let userInfoText = `姓名：${name}，性别：${gender}，出生日期：${birthdate}`;
@@ -1520,9 +1592,10 @@ let pendingVideo = null;
                     return { role: m.role, content: m.content };
                 });
 
+                const systemMessage = { role: 'system', content: hiddenContext };
                 const payload = {
                     model: model,
-                    messages: payloadMessages,
+                    messages: [systemMessage, ...payloadMessages],
                     temperature: config.temperature,
                     top_p: config.top_p,
                     max_tokens: config.max_tokens,
@@ -1591,7 +1664,9 @@ let pendingVideo = null;
                         bubble.innerHTML = '<p>（无回复内容）</p>';
                         messages.push({ role: 'assistant', content: '' });
                     } else {
-                        messages.push({ role: 'assistant', content: '[推理回复] ' + reasoningText, reasoning: reasoningText });
+                        fullContent = reasoningText;
+                        bubble.innerHTML = marked.parse(fullContent) || fullContent;
+                        messages.push({ role: 'assistant', content: fullContent, reasoning: reasoningText });
                     }
 
                 } catch (err) {
@@ -1729,19 +1804,22 @@ let pendingVideo = null;
             chatInput.addEventListener('keydown', e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if (chatInput.value.trim()) sendMessage(chatInput.value);
+                    if (chatInput.value.trim() || pendingImages.length > 0 || pendingVideo) {
+                        const imagesToSend = pendingImages.slice();
+                        const videoToSend = pendingVideo;
+                        pendingImages = [];
+                        pendingVideo = null;
+                        sendMessage(chatInput.value.trim(), imagesToSend, videoToSend);
+                    }
                 }
             });
 
             renderSidebarList();
 
             function checkFirstVisit() {
-                const hasVisited = localStorage.getItem('suanming_page_visited');
-                if (!hasVisited) {
-                    setTimeout(() => {
-                        document.getElementById('modalOverlay').classList.add('show');
-                    }, 500);
-                }
+                setTimeout(() => {
+                    document.getElementById('modalOverlay').classList.add('show');
+                }, 500);
             }
 
             document.getElementById('modalBtn').addEventListener('click', () => {
@@ -1752,6 +1830,9 @@ let pendingVideo = null;
             checkFirstVisit();
 
             initAutoMessage();
+
+            btnPlus.style.display = 'flex';
+            document.getElementById('btnVideo').style.display = 'flex';
 
             // ============ 安卓键盘适配：输入框跟随键盘移动 ============
             let initialViewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
