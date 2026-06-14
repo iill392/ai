@@ -1,5 +1,5 @@
 {
-  "version": "2.0.1",
+  "version": "1.0.0",
   "changelog": "-修复了已知bug\n-修复了网络弱进不去的问题\n-请尽快更新",
   "downloadUrl": "intent://youlong.pages.dev#Intent;scheme=https;action=android.intent.action.VIEW;end",
   "force": false
