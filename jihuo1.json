@@ -2,8 +2,36 @@
   "premium_quota": 50000,
   "codes": [
     {
+      "code": "SHIZUKU-VIP-2025-001",
+      "used": true,
+      "expired": true
+    },
+    {
+      "code": "SHIZUKU-VIP-2025-002",
+      "used": true,
+      "expired": true
+    },
+    {
+      "code": "SHIZUKU-VIP-2025-003",
+      "used": true,
+      "expired": true
+    },
+    {
       "code": "youlong-666",
-      "used": false
+      "used": true,
+      "expired": true
+    },
+    {
+      "code": "22",
+      "used": true,
+      "validUntil": "2026-12-31",
+      "expired": true
+    },
+    {
+      "code": "5555",
+      "used": false,
+      "validUntil": "2026-12-31",
+      "expired": false
     }
   ]
 }
