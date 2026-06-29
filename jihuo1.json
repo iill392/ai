@@ -2,10 +2,10 @@
   "premium_quota": 50000,
   "codes": [
     {
-      "code": "111",
+      "code": "555",
       "used": false,
       "expired": false,
-      "validUntil": "2026-07-01"
+      "validUntil": "2027-07-01"
     }
   ]
 }
