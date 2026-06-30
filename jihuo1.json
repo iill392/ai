@@ -1,13 +1,26 @@
 
 {
-  "premium_quota": 50000,
+  "premium_quota": 30000,
   "codes": [
     {
-      "code": "666",
+      "code": "youlong-666",
       "used": false,
       "expired": false,
       "createdAt": "2026-06-30",
-      "validUntil": "2026-07-01"
+      "validUntil": "2026-07-02"
     }
   ]
 }
+{
+  "premium_quota": 30000,
+  "codes": [
+    {
+      "code": "youlong-666555",
+      "used": false,
+      "expired": false,
+      "createdAt": "2026-06-30",
+      "validUntil": "2026-07-02"
+    }
+  ]
+}
+
