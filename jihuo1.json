@@ -6,21 +6,28 @@
       "used": false,
       "expired": false,
       "createdAt": "2026-06-30",
-      "validUntil": "2026-07-02"
+      "validUntil": "2026-07-03"
     },
     {
       "code": "666-youlong",
       "used": false,
       "expired": false,
       "createdAt": "2026-06-30",
-      "validUntil": "2026-07-02"
+      "validUntil": "2026-07-03"
     },
     {
       "code": "youlong-666555",
       "used": false,
       "expired": false,
       "createdAt": "2026-06-30",
-      "validUntil": "2026-07-02"
+      "validUntil": "2026-07-03"
+    },
+    {
+      "code": "youlong11-vip",
+      "used": false,
+      "expired": false,
+      "createdAt": "2026-07-01",
+      "validUntil": "2026-07-04"
     }
   ]
 }
