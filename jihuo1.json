@@ -1,12 +1,4 @@
 {
   "premium_quota": 50000,
-  "codes": [
-    {
-      "code": "youlong11-vip",
-      "used": false,
-      "expired": false,
-      "createdAt": "2026-07-01",
-      "validUntil": "2026-07-04"
-    }
-  ]
+  "codes": []
 }
